@@ -1,13 +1,13 @@
 # LinkedIn Profile Audit
 
-A multi-agent Claude Code tool that scrapes a LinkedIn profile and generates a PDF audit report from a career-coach + recruiter lens, including forward-looking 5-year career trajectory guidance.
+A multi-agent Claude Code tool that scrapes a LinkedIn profile and generates a PDF audit report from a career-coach + recruiter lens, including forward-looking 3-year career trajectory guidance.
 
 ## How it works
 
 The pipeline is four stages, each a separate Claude Code subagent (or script) with a narrow, well-defined job:
 
 1. **scraper** drives Claude in Chrome to extract a LinkedIn profile — header, about, experience, education, skills, certifications, featured items, recent posts, recommendations, and projects — into a single JSON file conforming to `data/schema.json`.
-2. **career-coach** and **recruiter** each read that raw profile JSON independently and in parallel. Neither touches the browser or re-scrapes; they're read-only analysis passes over an already-captured file. career-coach evaluates narrative consistency, positioning, and achievement framing, and also produces a forward-looking 5-year career trajectory (SWOT/FODA, recommended paths, skill recommendations, a quarterly OODA loop). recruiter evaluates the profile the way an ATS or a recruiter doing a 6-second skim would — keyword searchability, skills relevance, credibility signals, and red flags.
+2. **career-coach** and **recruiter** each read that raw profile JSON independently and in parallel. Neither touches the browser or re-scrapes; they're read-only analysis passes over an already-captured file. career-coach evaluates narrative consistency, positioning, and achievement framing, and also produces a forward-looking 3-year career trajectory (SWOT, recommended paths, skill recommendations, a quarterly OODA loop). recruiter evaluates the profile the way an ATS or a recruiter doing a 6-second skim would — keyword searchability, skills relevance, credibility signals, and red flags.
 3. **synthesis** reads both analysis files, merges and deduplicates overlapping findings into a single prioritized recommendation set (with before/after examples where grounded), and passes career-coach's trajectory guidance through as its own section — separate from the profile-polish recommendations, since it's strategic advice rather than a copy critique.
 4. **`scripts/generate_pdf.py`** renders the synthesis output, plus the raw profile and both analysis files, into the final PDF report.
 
@@ -36,7 +36,14 @@ Every scraper run writes a new timestamped file to `data/raw/` (`profile_<YYYYMM
 
 ## Sample output
 
-_Screenshots and a sample PDF will go here._
+![Executive summary and profile snapshot](docs/sample-exec-summary.png)
+*The report's opening page — the merged cover/executive-summary block, plus the profile snapshot listing what was captured from the raw scrape.*
+
+![Section-by-section findings](docs/sample-findings.png)
+*Career-coach and recruiter findings stacked full-width per profile section, each tagged inline by lens.*
+
+![Career trajectory SWOT analysis](docs/sample-trajectory.png)
+*The forward-looking Career Trajectory section: a SWOT grid grounded in the actual profile data and web-search findings from that session.*
 
 ## Running it yourself
 

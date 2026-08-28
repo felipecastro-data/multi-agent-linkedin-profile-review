@@ -26,6 +26,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -87,13 +88,17 @@ SUBHEADING_STYLE = ParagraphStyle(
     keepWithNext=1,
 )
 
-SMALL_LABEL_STYLE = ParagraphStyle(
-    "SmallLabel",
-    fontName="Helvetica-Bold",
-    fontSize=9,
-    textColor=ACCENT,
-    leading=11,
-    spaceAfter=2,
+# Same look as SUBHEADING_STYLE but WITHOUT keepWithNext — for a heading
+# that's already glued to what precedes it via an explicit KeepTogether,
+# where the *next* flowable is a large, variable-length table (e.g. the
+# SWOT grid). keepWithNext would otherwise make the heading try to glue
+# itself to that entire table too, and silently strand the heading (and
+# anything it's KeepTogether'd with) if the table is too tall to fit
+# alongside it on one page.
+SUBHEADING_NO_GLUE_STYLE = ParagraphStyle(
+    "SubheadingNoGlue",
+    parent=SUBHEADING_STYLE,
+    keepWithNext=0,
 )
 
 BODY_STYLE = ParagraphStyle(
@@ -177,8 +182,8 @@ COVER_DATE_STYLE = ParagraphStyle(
 
 # ---- Career Trajectory section styles -------------------------------------
 
-DOFA_LABEL_STYLE = ParagraphStyle(
-    "DofaLabel",
+SWOT_LABEL_STYLE = ParagraphStyle(
+    "SwotLabel",
     fontName="Helvetica-Bold",
     fontSize=10,
     textColor=NAVY,
@@ -186,8 +191,8 @@ DOFA_LABEL_STYLE = ParagraphStyle(
     spaceAfter=3,
 )
 
-DOFA_BULLET_TEXT_STYLE = ParagraphStyle(
-    "DofaBulletText",
+SWOT_BULLET_TEXT_STYLE = ParagraphStyle(
+    "SwotBulletText",
     fontName="Helvetica",
     fontSize=8.5,
     textColor=BODY_GRAY,
@@ -220,10 +225,10 @@ OODA_ARROW_STYLE = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
-DOFA_GREEN_BG = colors.HexColor("#E3F5EA")
-DOFA_BLUE_BG = colors.HexColor("#E5F0FB")
-DOFA_AMBER_BG = colors.HexColor("#FDF3DC")
-DOFA_RED_BG = colors.HexColor("#FBE6E6")
+SWOT_GREEN_BG = colors.HexColor("#E3F5EA")
+SWOT_BLUE_BG = colors.HexColor("#E5F0FB")
+SWOT_AMBER_BG = colors.HexColor("#FDF3DC")
+SWOT_RED_BG = colors.HexColor("#FBE6E6")
 QUADRANT_BORDER = colors.HexColor("#D8D8D8")
 OODA_BOX_BG = colors.HexColor("#F2F5F3")
 
@@ -296,38 +301,33 @@ def bullet_item(lead_in: str | None, description: str, width: float = CONTENT_WI
     return table
 
 
-def two_column_findings(
-    left_label: str, left_bullets: list[tuple[str | None, str]],
-    right_label: str, right_bullets: list[tuple[str | None, str]],
-) -> Table:
-    """Side-by-side bulleted lists, e.g. career-coach vs. recruiter findings.
+def finding_item(source_label: str, observation: str, width: float = CONTENT_WIDTH) -> Table:
+    """A single full-width finding: colored square + small colored lens tag
+    (e.g. "CAREER COACH —") inline before the observation text.
 
-    Built as one table row per bullet pair (rather than a single row holding
-    an entire column's worth of flowables) so reportlab can split it across
-    a page break when one side has many findings — a single-row table can't
-    split at all, and errors out if it's taller than one full page.
+    Each finding is its own atomic flowable (not a cell inside a larger
+    single-row table), so a section's findings stack vertically and
+    reportlab can break between them at a page boundary — only the section
+    subheading-to-first-finding glue (via SUBHEADING_STYLE's keepWithNext)
+    is enforced, not the whole list.
     """
-    col_width = (CONTENT_WIDTH - COL_GAP) / 2
-
-    left_items = left_bullets or [(None, "No findings from this lens.")]
-    right_items = right_bullets or [(None, "No findings from this lens.")]
-
-    rows = [[Paragraph(left_label, SMALL_LABEL_STYLE), Paragraph(right_label, SMALL_LABEL_STYLE)]]
-    for i in range(max(len(left_items), len(right_items))):
-        left_flowable = bullet_item(*left_items[i], width=col_width) if i < len(left_items) else ""
-        right_flowable = bullet_item(*right_items[i], width=col_width) if i < len(right_items) else ""
-        rows.append([left_flowable, right_flowable])
-
-    table = Table(rows, colWidths=[col_width, col_width])
+    safe_observation = _xml_escape(observation) if observation else "Not available"
+    text = (
+        f"<font color='#2E9E6B'><b>{_xml_escape(source_label.upper())}</b></font> "
+        f"— {safe_observation}"
+    )
+    glyph = Paragraph("■", BULLET_GLYPH_STYLE)
+    body = Paragraph(text, BULLET_TEXT_STYLE)
+    glyph_width = 14
+    table = Table([[glyph, body]], colWidths=[glyph_width, width - glyph_width])
     table.setStyle(
         TableStyle(
             [
                 ("LEFTPADDING", (0, 0), (0, 0), 0),
-                ("RIGHTPADDING", (0, 0), (0, 0), COL_GAP),
+                ("RIGHTPADDING", (0, 0), (0, 0), 4),
                 ("LEFTPADDING", (1, 0), (1, 0), 0),
-                ("RIGHTPADDING", (1, 0), (1, 0), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ]
         )
@@ -368,35 +368,6 @@ def _two_column_table(left_cell: list, right_cell: list, col_width: float) -> Ta
     return table
 
 
-def three_column_blocks(columns: list[tuple[str, list[str]]]) -> Table:
-    """Up to three headed bullet-list columns side by side (e.g. Next Steps'
-    This Week / This Month / This Quarter)."""
-    n = len(columns)
-    gap_total = COL_GAP * (n - 1)
-    col_width = (CONTENT_WIDTH - gap_total) / n
-
-    cells = []
-    for heading_text, items in columns:
-        cell = [Paragraph(heading_text, SUBHEADING_STYLE)]
-        for item in items:
-            cell.append(bullet_item(None, item, width=col_width))
-        cells.append(cell)
-
-    col_widths = [col_width] * n
-    style_cmds = [
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]
-    for i in range(n):
-        style_cmds.append(("LEFTPADDING", (i, 0), (i, 0), 0 if i == 0 else COL_GAP))
-        style_cmds.append(("RIGHTPADDING", (i, 0), (i, 0), 0))
-
-    table = Table([cells], colWidths=col_widths)
-    table.setStyle(TableStyle(style_cmds))
-    return table
-
-
 def recommendation_flowables(
     title: str, impact: str, finding_summary: str,
     before_example: str | None, after_example: str | None,
@@ -425,19 +396,21 @@ def recommendation_flowables(
     return flowables
 
 
-def dofa_grid(dofa: dict) -> Table:
-    """2x2 DOFA/SWOT grid: Strengths/Opportunities/Weaknesses/Threats, each
+def swot_grid(swot: dict) -> Table:
+    """2x2 SWOT grid: Strengths/Opportunities/Weaknesses/Threats, each
     quadrant colored and holding a compact bulleted list of the actual
-    entries from career_trajectory.dofa."""
+    entries from career_trajectory.dofa (the JSON key stays `dofa` — it's
+    the established data contract with career-coach/synthesis output —
+    only the display label is SWOT)."""
     col_width = (CONTENT_WIDTH - COL_GAP) / 2
     inner_width = col_width - 20
 
     def quadrant(label: str, entries: list) -> list:
-        cell = [Paragraph(label, DOFA_LABEL_STYLE)]
+        cell = [Paragraph(label, SWOT_LABEL_STYLE)]
         if entries:
             for entry in entries:
                 glyph = Paragraph("■", BULLET_GLYPH_STYLE)
-                body = Paragraph(_xml_escape(str(entry)), DOFA_BULLET_TEXT_STYLE)
+                body = Paragraph(_xml_escape(str(entry)), SWOT_BULLET_TEXT_STYLE)
                 row = Table([[glyph, body]], colWidths=[12, inner_width - 12])
                 row.setStyle(
                     TableStyle(
@@ -452,13 +425,13 @@ def dofa_grid(dofa: dict) -> Table:
                 )
                 cell.append(row)
         else:
-            cell.append(Paragraph("Not available", DOFA_BULLET_TEXT_STYLE))
+            cell.append(Paragraph("Not available", SWOT_BULLET_TEXT_STYLE))
         return cell
 
-    top_left = quadrant("Strengths", dofa.get("strengths") or [])
-    top_right = quadrant("Opportunities", dofa.get("opportunities") or [])
-    bottom_left = quadrant("Weaknesses", dofa.get("weaknesses") or [])
-    bottom_right = quadrant("Threats", dofa.get("threats") or [])
+    top_left = quadrant("Strengths", swot.get("strengths") or [])
+    top_right = quadrant("Opportunities", swot.get("opportunities") or [])
+    bottom_left = quadrant("Weaknesses", swot.get("weaknesses") or [])
+    bottom_right = quadrant("Threats", swot.get("threats") or [])
 
     table = Table(
         [[top_left, top_right], [bottom_left, bottom_right]],
@@ -467,10 +440,10 @@ def dofa_grid(dofa: dict) -> Table:
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (0, 0), DOFA_GREEN_BG),
-                ("BACKGROUND", (1, 0), (1, 0), DOFA_BLUE_BG),
-                ("BACKGROUND", (0, 1), (0, 1), DOFA_AMBER_BG),
-                ("BACKGROUND", (1, 1), (1, 1), DOFA_RED_BG),
+                ("BACKGROUND", (0, 0), (0, 0), SWOT_GREEN_BG),
+                ("BACKGROUND", (1, 0), (1, 0), SWOT_BLUE_BG),
+                ("BACKGROUND", (0, 1), (0, 1), SWOT_AMBER_BG),
+                ("BACKGROUND", (1, 1), (1, 1), SWOT_RED_BG),
                 ("LEFTPADDING", (0, 0), (-1, -1), 10),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 10),
                 ("TOPPADDING", (0, 0), (-1, -1), 8),
@@ -748,13 +721,11 @@ def build_findings(story: list, findings_by_section: list[dict]) -> None:
 
     for entry in findings_by_section:
         story.append(Paragraph(_xml_escape(entry["section"]), SUBHEADING_STYLE))
-        story.append(
-            two_column_findings(
-                "Career Coach", entry["career_coach"],
-                "Recruiter", entry["recruiter"],
-            )
-        )
-        story.append(Spacer(1, 3))
+        for _, observation in entry["career_coach"]:
+            story.append(finding_item("Career Coach", observation))
+        for _, observation in entry["recruiter"]:
+            story.append(finding_item("Recruiter", observation))
+        story.append(Spacer(1, 6))
 
     story.append(Spacer(1, 6))
 
@@ -792,31 +763,56 @@ def build_recommendations(story: list, recommendations: list[dict]) -> None:
 
 
 def build_career_trajectory(story: list, career_trajectory: dict | None) -> None:
-    """Forward-looking 5-year strategic guidance, passed through from
-    career-coach — DOFA, recommended paths, skill/cert recommendations, and
+    """Forward-looking 3-year strategic guidance, passed through from
+    career-coach — SWOT, recommended paths, skill/cert recommendations, and
     an OODA execution loop. Kept visually and structurally separate from
     the profile-polish Prioritized Recommendations section above it."""
-    story.append(section_header("Strategy", "Career Trajectory — 5-Year Outlook"))
-    story.append(Spacer(1, 5))
-
     if not career_trajectory:
-        story.append(Paragraph("Career trajectory analysis not available", BODY_STYLE))
+        story.append(
+            KeepTogether(
+                [
+                    section_header("Strategy", "Career Trajectory — 3-Year Outlook"),
+                    Spacer(1, 5),
+                    Paragraph("Career trajectory analysis not available", BODY_STYLE),
+                ]
+            )
+        )
         story.append(Spacer(1, 9))
         return
 
+    # Keep the section header, its intro line, and the "SWOT Analysis"
+    # heading together as one small, fixed-size atomic unit — this always
+    # fits on a single page, so it reliably travels together rather than
+    # leaving the header stranded alone. The SWOT grid itself is NOT
+    # included here: its height depends on how much SWOT content
+    # career-coach produced (varies run to run) and can exceed a full
+    # page, which would make even a KeepTogether silently give up on
+    # atomicity. It's appended below using SUBHEADING_NO_GLUE_STYLE for
+    # the heading (no keepWithNext) so the grid is free to flow onto the
+    # next page, or split between its two rows, on its own terms — a
+    # multi-row Table already splits at row boundaries when it needs to.
     story.append(
-        Paragraph(
-            "Forward-looking strategic guidance on the candidate's career "
-            "trajectory — distinct from the profile-polish recommendations above.",
-            BODY_STYLE,
+        KeepTogether(
+            [
+                section_header("Strategy", "Career Trajectory — 3-Year Outlook"),
+                Spacer(1, 5),
+                Paragraph(
+                    "Forward-looking strategic guidance on the candidate's career "
+                    "trajectory — distinct from the profile-polish recommendations above.",
+                    BODY_STYLE,
+                ),
+                Spacer(1, 6),
+                Paragraph("SWOT Analysis", SUBHEADING_NO_GLUE_STYLE),
+            ]
         )
     )
-    story.append(Spacer(1, 6))
 
-    dofa = career_trajectory.get("dofa") or {}
-    story.append(Paragraph("FODA Analysis", SUBHEADING_STYLE))
-    if any(dofa.get(k) for k in ("strengths", "weaknesses", "opportunities", "threats")):
-        story.append(dofa_grid(dofa))
+    # `career_trajectory`'s JSON key is `dofa` (the career-coach/synthesis
+    # data contract — not renamed, see swot_grid's docstring); only the
+    # rendered label above it says "SWOT".
+    swot = career_trajectory.get("dofa") or {}
+    if any(swot.get(k) for k in ("strengths", "weaknesses", "opportunities", "threats")):
+        story.append(swot_grid(swot))
     else:
         story.append(Paragraph("Not available", BODY_STYLE))
     story.append(Spacer(1, 9))
@@ -861,19 +857,32 @@ def build_career_trajectory(story: list, career_trajectory: dict | None) -> None
 
 
 def build_next_steps(story: list, next_steps: dict) -> None:
+    """Each time horizon renders as its own full-width, stacked block —
+    heading with keepWithNext (via SUBHEADING_STYLE) glued to the bullet
+    list right after it, so a heading never gets orphaned at a page
+    bottom away from its own items."""
     story.append(section_header("Roadmap", "Next Steps"))
     story.append(Spacer(1, 5))
 
-    columns = [
+    horizons = [
         ("This Week", next_steps.get("short_term") or []),
         ("This Month", next_steps.get("medium_term") or []),
         ("This Quarter", next_steps.get("long_term") or []),
     ]
-    if not any(items for _, items in columns):
+    if not any(items for _, items in horizons):
         story.append(Paragraph("No next steps available.", BODY_STYLE))
         return
 
-    story.append(three_column_blocks(columns))
+    rendered_horizons = [(h, items) for h, items in horizons if items]
+    for i, (heading_text, items) in enumerate(rendered_horizons):
+        story.append(Paragraph(heading_text, SUBHEADING_STYLE))
+        for item in items:
+            story.append(bullet_item(None, item))
+        # No trailing spacer after the last block — a spacer as the very
+        # last flowable in the document can itself overflow the final
+        # page's remaining space and force an otherwise-empty extra page.
+        if i < len(rendered_horizons) - 1:
+            story.append(Spacer(1, 6))
 
 
 # ---------------------------------------------------------------------------

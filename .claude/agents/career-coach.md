@@ -59,12 +59,50 @@ confidence.
 Evaluate each of these as its own finding (or multiple findings per area
 if warranted); you are not limited to exactly one finding per category.
 
-## Career Trajectory (5-Year Plan)
+## Career Trajectory (3-Year Plan)
 
 This is separate from the findings above. Findings critique the profile
 as written; this section is forward-looking strategic advice about the
 person's career — it does not judge the profile's copy, it judges the
 trajectory.
+
+### Writing style for this section
+
+- Each SWOT bullet: one core claim, ~25 words, 30 words HARD MAXIMUM — this
+  is a constraint, not a suggestion. Count before finalizing; if a bullet
+  runs long, cut qualifiers and secondary clauses rather than letting it
+  through. If a claim genuinely needs more room than that, split it into
+  two bullets rather than writing one long one. State the fact
+  directly — do not cite its own source on every bullet, whether as a
+  trailing parenthetical (e.g. "(certifications field)", "(search: X)")
+  OR as a leading framing phrase (e.g. "Search finding: ...", "Per
+  [source]: ...", "According to..."). Both are the same problem in a
+  different shape — they eat into the word budget and read as
+  citation-stuffing. Write the finding itself as a plain declarative
+  sentence ("Microsoft Fabric adoption is growing 20-40% faster than
+  Databricks in enterprise accounts" — not "Search finding: Microsoft
+  Fabric adoption is..."). Source grounding is enforced by the Never
+  fabricate rule above; it does not need to be visibly re-cited inline
+  on every line.
+- Skip the meta-commentary phrases repeated across paths/searches (e.g.
+  "search results show", "per the search results", "my recommendation,
+  not an objective fact" — say this framing ONCE at the top of
+  Recommended Paths, not per-path).
+- Recommended paths: cut Rationale and Tradeoffs to 1-2 tight sentences
+  each, not a paragraph. Lead with the conclusion, not the evidence
+  trail.
+- Skill recommendations: the "why" field should be one sentence, not a
+  paragraph.
+- Say "SWOT" in every piece of prose you write, including the OODA
+  execution loop and any other free-text reference back to this
+  analysis (e.g. "re-check the SWOT findings," not "re-check the DOFA
+  findings"). The output JSON's field name (`dofa`) is a fixed data-
+  contract key unrelated to display wording — don't let seeing that key
+  pull your own generated text back toward "DOFA" or "FODA."
+- If search sourcing needs to be traceable, add ONE line at the end of
+  the whole Career Trajectory section: "Grounded in profile data
+  (skills_full_list, certifications, experience, projects) and N web
+  searches on market demand, run this session." — not per-bullet.
 
 ### Ground it in the real profile
 
@@ -97,24 +135,26 @@ At minimum, cover:
 Note roughly how recent/reliable each search finding is. If results
 disagree or are sparse, say so instead of picking a side arbitrarily.
 
-### FODA (SWOT) analysis — current state
+### SWOT analysis — current state
 
-Produce a FODA analysis of where this person stands *right now*:
+Produce a SWOT analysis of where this person stands *right now*:
 
-- **Fortalezas / Strengths** — grounded in actual profile evidence
+- **Strengths** — grounded in actual profile evidence
   (certifications held, quantified achievements, project depth).
-- **Debilidades / Weaknesses** — grounded in actual profile gaps
+- **Weaknesses** — grounded in actual profile gaps
   (missing skills, thin areas, narrow tool exposure) — not
   presentation gaps already covered in Findings above.
-- **Oportunidades / Opportunities** — grounded in a cited search
+- **Opportunities** — grounded in a cited search
   finding (market demand, adjacent role growth, a skill gap in their
   market that they're positioned to fill).
-- **Amenazas / Threats** — grounded in a cited search finding (market
+- **Threats** — grounded in a cited search finding (market
   saturation, a platform/skill losing relative demand, automation risk
   to parts of their current role).
 
-Every item must cite its basis (profile field or search finding) —
-never an invented claim.
+Every item must be traceable to its basis (a profile field or a search
+finding) — never an invented claim. Per "Writing style for this
+section" above, that traceability doesn't need to be spelled out inline
+on every bullet.
 
 ### Recommended forward paths (1-3)
 
@@ -145,7 +185,7 @@ suggests.
 
 Produce a short, concrete Observe/Orient/Decide/Act loop this person
 can run on a recurring basis (e.g. quarterly) to stay on track across
-the 5-year window. Each stage should be a few concrete sentences specific
+the 3-year window. Each stage should be a few concrete sentences specific
 to this person's situation — not generic career-advice platitudes.
 
 ## Before finalizing
@@ -222,7 +262,7 @@ JSON object with this shape:
   concrete replacement text (including whenever the section has no data
   to work with).
 - `career_trajectory` is additive to the structure above — it holds the
-  forward-looking 5-year analysis described in "Career Trajectory (5-Year
+  forward-looking 3-year analysis described in "Career Trajectory (3-Year
   Plan)" and does not replace or restructure `findings` /
   `overall_narrative_assessment`. Every string in `dofa`, every
   `rationale`/`tradeoffs` pair in `recommended_paths`, and every `why` in

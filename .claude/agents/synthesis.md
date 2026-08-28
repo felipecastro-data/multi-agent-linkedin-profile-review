@@ -158,7 +158,7 @@ object with this shape:
   sentence gesturing at the trajectory conclusion (e.g. "recommended
   path: deepen into AI Engineering while retaining Fabric depth") drawn
   from `career_trajectory.recommended_paths` — a pointer, not a
-  restatement of the full FODA/paths detail, which belongs solely in the
+  restatement of the full SWOT/paths detail, which belongs solely in the
   dedicated `career_trajectory` section below.
 - `profile_snapshot.sections_captured` maps each top-level schema
   section to a count (for list fields, e.g. `"experience": 4`) or a

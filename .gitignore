@@ -1,6 +1,7 @@
 data/raw/
 data/analysis/
-output/
+output/*
+!output/felipe_castro_linkedin_audit.pdf
 __pycache__/
 venv/
 .env
