@@ -1,0 +1,74 @@
+{
+  "profile_url": "string",
+  "scraped_at": "ISO timestamp",
+  "header": {
+    "headline": "string|null",
+    "photo_present": "bool",
+    "banner_present": "bool"
+  },
+  "about": "string|null",
+  "top_skills": ["string"],
+  "experience": [
+    {
+      "title": "string",
+      "company": "string",
+      "start_date": "string|null",
+      "end_date": "string|null",
+      "description": "string|null",
+      "has_media": "bool"
+    }
+  ],
+  "education": [
+    {
+      "school": "string",
+      "degree": "string|null",
+      "field": "string|null",
+      "dates": "string|null"
+    }
+  ],
+  "skills_full_list": ["string"],
+  "certifications": [
+    {
+      "name": "string",
+      "issuer": "string|null",
+      "date": "string|null"
+    }
+  ],
+  "featured_items": [
+    {
+      "text_snippet": "string",
+      "date": "string|null",
+      "engagement": "string|null"
+    }
+  ],
+  "recent_posts": [
+    {
+      "text_snippet": "string",
+      "date": "string|null",
+      "likes": "number|null",
+      "comments": "number|null",
+      "impressions": "number|null"
+    }
+  ],
+  "recommendations_received": [
+    {
+      "author": "string",
+      "relationship": "string|null",
+      "text": "string"
+    }
+  ],
+  "recommendations_given": [
+    {
+      "recipient": "string",
+      "text": "string"
+    }
+  ],
+  "projects": [
+    {
+      "name": "string",
+      "description": "string|null",
+      "dates": "string|null"
+    }
+  ],
+  "missing_fields": ["string"]
+}
