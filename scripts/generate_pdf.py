@@ -946,9 +946,28 @@ def generate_pdf(
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
 
 
+def _latest_timestamp(analysis_dir: Path) -> str:
+    """Find the most recent run timestamp, i.e. the newest synthesis_<ts>.json
+    file for which matching raw/career_coach/recruiter files also exist."""
+    pattern = re.compile(r"^synthesis_(\d{8}_\d{6})\.json$")
+    candidates = sorted(
+        (m.group(1) for f in analysis_dir.glob("synthesis_*.json") if (m := pattern.match(f.name))),
+        reverse=True,
+    )
+    project_root = analysis_dir.parent.parent
+    for ts in candidates:
+        if (
+            (project_root / "data" / "raw" / f"profile_{ts}.json").exists()
+            and (analysis_dir / f"career_coach_{ts}.json").exists()
+            and (analysis_dir / f"recruiter_{ts}.json").exists()
+        ):
+            return ts
+    raise FileNotFoundError(f"No complete pipeline run (synthesis + raw + career_coach + recruiter) found in {analysis_dir}")
+
+
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parent.parent
-    timestamp = "20260826_142809"
+    timestamp = _latest_timestamp(project_root / "data" / "analysis")
     output_file = project_root / "output" / "felipe_castro_linkedin_audit.pdf"
     generate_pdf(
         synthesis_path=str(project_root / "data" / "analysis" / f"synthesis_{timestamp}.json"),
