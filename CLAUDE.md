@@ -51,6 +51,22 @@ raw file that is passed to them or otherwise already present in
 Re-scraping only happens when a user explicitly runs the scraper agent
 again.
 
+### Auto-commit the regenerated PDF
+
+After `scripts/generate_pdf.py` regenerates `output/felipe_castro_linkedin_audit.pdf`
+as part of a full pipeline run, commit that file automatically — no
+confirmation prompt, no diff review requested from the user. Use a commit
+message that names the source run's timestamp, e.g. "Regenerate audit PDF
+from latest pipeline run (<timestamp>)". This is pre-authorized because the
+user regenerates the report multiple times a week and doesn't want to
+manually commit each time.
+
+Do **not** push automatically — pushing to `origin/main` remains a
+separate, explicitly-confirmed step. This auto-commit also only covers the
+PDF regeneration step; it does not authorize auto-committing unrelated
+changes (e.g. script/code edits) made in the same session — those still go
+through normal commit confirmation.
+
 ## Schema
 
 The exact JSON structure the scraper must produce is defined in
