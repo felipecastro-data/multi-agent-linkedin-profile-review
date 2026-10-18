@@ -1,8 +1,8 @@
-data/raw/
-data/analysis/
-output/*
-!output/felipe_castro_linkedin_audit.pdf
+# Run data stays local (personal career data)
+data/*
+!data/schema.json
+.env
+.clasp.json
 __pycache__/
 venv/
-.env
 .DS_Store

@@ -1,70 +1,124 @@
-# LinkedIn Profile Audit
+# LinkedIn Review — multi-agent career review
 
-A multi-agent Claude Code tool that scrapes a LinkedIn profile and generates a PDF audit report from a career-coach + recruiter lens, including forward-looking 3-year career trajectory guidance.
+A set of Claude Code subagents reviews my LinkedIn profile and career. The
+result lands in a responsive web app on Google Apps Script that works on
+desktop and mobile. One command runs the whole review: `/linkedin-review`.
+
+> v1 rendered a PDF. v2 replaces it with the web app, sets new agent scopes
+> (short-term recruiter, long-term career coach) and adds a shared Known
+> context file.
 
 ## How it works
 
-The pipeline is four stages, each a separate Claude Code subagent (or script) with a narrow, well-defined job:
+```
+/linkedin-review  (Claude Code skill)
+ ├─ scraper        Claude in Chrome → data/profiles/<RUN_ID>.json
+ ├─ recruiter  ┐   1–12 months: score, profile fixes, salary, keywords
+ ├─ career-coach┘  2–3 years: industry, role, country, skills (WEF + BLS)
+ ├─ synthesis      → data/runs/<RUN_ID>.json (schema v2)
+ └─ publish.py ──► Apps Script "ingest" ──► Drive folder ──► Apps Script "viewer" (Only me)
+```
 
-1. **scraper** drives Claude in Chrome to extract a LinkedIn profile — header, about, experience, education, skills, certifications, featured items, recent posts, recommendations, and projects — into a single JSON file conforming to `data/schema.json`.
-2. **career-coach** and **recruiter** each read that raw profile JSON independently and in parallel. Neither touches the browser or re-scrapes; they're read-only analysis passes over an already-captured file. career-coach evaluates narrative consistency, positioning, and achievement framing, and also produces a forward-looking 3-year career trajectory (SWOT, recommended paths, skill recommendations, a quarterly OODA loop). recruiter evaluates the profile the way an ATS or a recruiter doing a 6-second skim would — keyword searchability, skills relevance, credibility signals, and red flags.
-3. **synthesis** reads both analysis files, merges and deduplicates overlapping findings into a single prioritized recommendation set (with before/after examples where grounded), and passes career-coach's trajectory guidance through as its own section — separate from the profile-polish recommendations, since it's strategic advice rather than a copy critique.
-4. **`scripts/generate_pdf.py`** renders the synthesis output, plus the raw profile and both analysis files, into the final PDF report.
+| Agent | Horizon | Answers |
+|---|---|---|
+| recruiter | 1–12 months | Profile score; skill gaps in the current role; projects; recommendations; header/About; experience; certifications; master's or not; content strategy; salary (USD remote + COP); search keywords; paste-ready edits |
+| career-coach | 2–3 years | Industry; company size; stay or move and the target role; skill mandates; country (Colombia remote vs Mexico, Spain, US, plus one LatAm pick); tenure; IC vs management; market signals; SWOT; what to skip |
+| synthesis | — | Merges both agents into one run: summary, week/month/quarter plan, changes since the last run, conflict notes |
 
-Every scraper run writes a new timestamped file to `data/raw/` (`profile_<YYYYMMDD_HHMMSS>.json`) rather than overwriting the previous one. This raw data is treated as an immutable cache: analysis agents always operate on an existing raw file and never trigger a re-scrape on their own. That means you can re-run career-coach, recruiter, or synthesis as many times as you want — to iterate on prompts, fix a bug, or just get a second read — without needing to touch LinkedIn again.
+Every agent reads `context/known_context.md` first. That file holds facts I
+have confirmed, which the agents must never flag.
 
-## Architecture
+## Repo layout
 
-![Pipeline architecture](docs/linkedin_audit_pipeline_architecture.svg)
+```
+.claude/skills/linkedin-review/SKILL.md   orchestrator (/linkedin-review)
+.claude/agents/                           scraper, recruiter, career-coach, synthesis
+context/known_context.md                  confirmed facts every agent follows
+data/schema.json                          profile shape (data/ is otherwise gitignored)
+scripts/new_run.py                        RUN_ID, paths, previous profile
+scripts/validate_run.py                   checks a run before publishing
+scripts/publish.py                        POSTs the run to the ingest web app
+apps-script/viewer/                       the app: Code.gs, Index.html, appsscript.json
+apps-script/ingest/                       doPost endpoint: Code.gs, appsscript.json
+```
+
+## Setup (once)
+
+### 1. Ingest project, which receives runs
+
+1. Go to [script.google.com](https://script.google.com), click **New
+   project** and name it `LinkedIn Review – ingest`.
+2. Replace `Code.gs` with `apps-script/ingest/Code.gs`.
+3. In **Project Settings**, tick **Show "appsscript.json"**. Then replace
+   that file with `apps-script/ingest/appsscript.json`.
+4. Select `setup` in the function menu and click **Run**, then authorize it.
+   The execution log prints `FOLDER_ID` and `INGEST_TOKEN`.
+5. Go to **Deploy → New deployment → Web app**. Set **Execute as: Me** and
+   **Who has access: Anyone**. Copy the `/exec` URL.
+   - This project holds no data. It only writes into the folder, and only
+     when a request carries the token.
+
+### 2. Viewer project, which is the app
+
+1. Click **New project** and name it `LinkedIn Review`.
+2. Replace `Code.gs` with `apps-script/viewer/Code.gs`.
+3. Add an HTML file named `Index` and paste in `apps-script/viewer/Index.html`.
+4. Replace `appsscript.json` with `apps-script/viewer/appsscript.json`.
+5. In **Project Settings → Script properties**, add `FOLDER_ID` with the
+   value from step 1.4.
+6. Go to **Deploy → New deployment → Web app**. Set **Execute as: Me** and
+   **Who has access: Only myself**. Open the URL and bookmark it. On iPhone,
+   use **Share → Add to Home Screen**.
+
+### 3. Local
+
+```bash
+cp .env.example .env              # paste LR_INGEST_URL and LR_INGEST_TOKEN
+python3 scripts/publish.py --ping  # expect: OK token accepted
+python3 scripts/publish.py --all   # backfill earlier runs
+python3 scripts/publish.py --checks  # backfill ticked actions (once)
+```
+
+## Run a review
+
+1. Open Chrome, signed in to LinkedIn.
+2. In Claude Code (VS Code), open this folder.
+3. Type `@browser`, or turn on **Enabled by default** in `/chrome`.
+4. Run:
+
+```
+/linkedin-review
+```
+
+A run takes about 10–15 minutes. Reload the app to see it.
+
+## Updating the app
+
+Edit `apps-script/viewer/Index.html`, then paste it into the viewer project.
+Publish with **Deploy → Manage deployments → Edit → Version: New version**.
+The URL stays the same.
+
+To skip the copy-paste, use [clasp](https://github.com/google/clasp):
+
+1. Turn on the Apps Script API at
+   <https://script.google.com/home/usersettings>.
+2. Run `npm i -g @google/clasp && clasp login`.
+3. In `apps-script/viewer/`, create `.clasp.json` (gitignored):
+   `{"scriptId":"<viewer script id>","rootDir":"."}`
+4. After each change, run `clasp push` and then
+   `clasp deploy -i <deploymentId>`. Reusing the deployment ID keeps the URL.
 
 ## Design choices
 
-**Multi-agent over a single monolithic prompt.** Splitting scrape / analyze / synthesize / render into separate agents keeps each one's job small enough to specify precisely, lets career-coach and recruiter run in parallel with genuinely independent perspectives (neither sees the other's output while forming its own), and makes every stage independently re-runnable — you can fix a scraping gap without re-running analysis, or re-run analysis without re-scraping.
-
-**Never fabricate.** This is enforced at every stage. If a field can't be scraped, it's stored as `null` (or an empty list) and named in a `missing_fields` array — never guessed at. Analysis agents treat missing fields as genuinely unknown, not as something to paper over: an empty section still gets a finding (e.g. "no data to evaluate," or the absence itself flagged as a gap), and rewrite suggestions or before/after examples are only produced when there's real text to ground them in.
-
-**This is a probabilistic pipeline, not a deterministic one.** career-coach and recruiter are LLM-based agents, and running the same input through them twice can surface different findings — not because the underlying profile changed, but because LLM output isn't guaranteed to be identical run to run. This showed up directly during development: one career-coach run caught a real factual inconsistency (a recommendation's stated timeline conflicting with the profile's own experience dates), and a subsequent run on the same input missed it. To reduce (not eliminate) that variance, each analysis agent's prompt ends with an explicit "Before finalizing" self-verification checklist — cross-check company names for consistency, cross-check recommendation text against experience dates, confirm every populated section produced at least one finding, confirm trajectory claims trace to real evidence. This is a mitigation, not a guarantee: treat any single run's output as one read of the profile, not a canonical one, and re-run a stage if something looks off.
-
-**Runs entirely locally, via Claude Code + Claude in Chrome.** The scraper stage needs an authenticated, interactive LinkedIn session in a real browser — that can't run headless in CI without either storing LinkedIn credentials/session cookies somewhere (a real security liability) or fighting LinkedIn's bot detection. So there's no GitHub Actions workflow that runs this pipeline; GitHub hosts the code and this README as a showcase, but actually running it requires a human at a machine with Claude Code and Claude in Chrome installed, logged into LinkedIn themselves.
-
-## Tech stack
-
-- **Claude Code** (subagents) — orchestrates the four-stage pipeline
-- **Claude in Chrome** — drives the authenticated browser session for scraping
-- **Python** — analysis JSON handling and PDF rendering
-- **reportlab** — PDF generation (`scripts/generate_pdf.py`)
-
-## Sample output
-
-![Executive summary and profile snapshot](docs/sample-exec-summary.png)
-*The report's opening page — the merged cover/executive-summary block, plus the profile snapshot listing what was captured from the raw scrape.*
-
-![Section-by-section findings](docs/sample-findings.png)
-*Career-coach and recruiter findings stacked full-width per profile section, each tagged inline by lens.*
-
-![Career trajectory SWOT analysis](docs/sample-trajectory.png)
-*The forward-looking Career Trajectory section: a SWOT grid grounded in the actual profile data and web-search findings from that session.*
-
-## Running it yourself
-
-```bash
-git clone <this-repo>
-cd linkedin-multi-agent-review
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-Open the project in Claude Code, then:
-
-1. Confirm you're logged into LinkedIn in the Chrome instance Claude Code will drive (via Claude in Chrome).
-2. Run the **scraper** agent with the target profile URL — it writes `data/raw/profile_<timestamp>.json`.
-3. Run **career-coach** and **recruiter** on that timestamp — each writes its own file to `data/analysis/`.
-4. Run **synthesis** on the same timestamp to merge both into one prioritized report.
-5. Run `scripts/generate_pdf.py` (or call `generate_pdf(...)` directly) pointing at the synthesis, raw profile, career-coach, and recruiter files for that timestamp — it renders `output/*.pdf`.
-
-## Limitations
-
-- LinkedIn's DOM occasionally fails text-based extraction — a page can report content is loaded while `get_page_text`/`read_page` returns empty or truncated results. The scraper's procedure (documented in `.claude/agents/scraper.md`) mitigates this with a visual screenshot-and-zoom fallback rather than trusting text extraction alone, but it's a mitigation, not a guarantee the DOM won't misbehave in a new way.
-- Analysis quality varies run to run, since career-coach and recruiter are LLM-based and not deterministic — see "Design choices" above.
-- This was built as a personal tool and learning project, not a production scraper. If you adapt it, respect LinkedIn's terms of use and your own account's standing — this scrapes an authenticated session under your own login, at your own risk.
+- **Probabilistic, not deterministic.** Two runs on the same profile can
+  differ. The safeguards are:
+  - cited sources for every market claim
+  - a shared Known context file
+  - `validate_run.py`
+- **Privacy.**
+  - Raw profiles and runs stay in `data/`, which is gitignored, and in my
+    own Drive.
+  - The viewer is deployed "Only myself".
+  - The ingest endpoint is public but needs the token, and it never returns
+    data.
+- **Old runs keep rendering.** The app reads both schema v1 and v2 runs.

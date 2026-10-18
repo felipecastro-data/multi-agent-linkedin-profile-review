@@ -1,74 +1,28 @@
 {
-  "profile_url": "string",
-  "scraped_at": "ISO timestamp",
+  "$comment": "LinkedIn Review profile schema v2. The scraper writes one file per run to data/profiles/<RUN_ID>.json in exactly this shape. Lists may be empty; unknown scalars are null and named in missing_fields.",
+  "profile_url": "https://www.linkedin.com/in/felipecastro-data/",
+  "scraped_at": "ISO 8601 UTC",
   "header": {
-    "headline": "string|null",
-    "photo_present": "bool",
-    "banner_present": "bool"
+    "headline": "",
+    "photo_present": true,
+    "banner_present": true,
+    "location": "",
+    "open_to_work": "roles shown in the Open to work card, or null",
+    "followers": 0,
+    "connections": "500+"
   },
-  "about": "string|null",
-  "top_skills": ["string"],
-  "experience": [
-    {
-      "title": "string",
-      "company": "string",
-      "start_date": "string|null",
-      "end_date": "string|null",
-      "description": "string|null",
-      "has_media": "bool"
-    }
-  ],
-  "education": [
-    {
-      "school": "string",
-      "degree": "string|null",
-      "field": "string|null",
-      "dates": "string|null"
-    }
-  ],
-  "skills_full_list": ["string"],
-  "certifications": [
-    {
-      "name": "string",
-      "issuer": "string|null",
-      "date": "string|null"
-    }
-  ],
-  "featured_items": [
-    {
-      "text_snippet": "string",
-      "date": "string|null",
-      "engagement": "string|null"
-    }
-  ],
-  "recent_posts": [
-    {
-      "text_snippet": "string",
-      "date": "string|null",
-      "likes": "number|null",
-      "comments": "number|null",
-      "impressions": "number|null"
-    }
-  ],
-  "recommendations_received": [
-    {
-      "author": "string",
-      "relationship": "string|null",
-      "text": "string"
-    }
-  ],
-  "recommendations_given": [
-    {
-      "recipient": "string",
-      "text": "string"
-    }
-  ],
-  "projects": [
-    {
-      "name": "string",
-      "description": "string|null",
-      "dates": "string|null"
-    }
-  ],
-  "missing_fields": ["string"]
+  "about": "",
+  "top_skills": [""],
+  "experience": [{"title": "", "company": "", "start_date": "", "end_date": "", "description": "", "has_media": false}],
+  "education": [{"school": "", "degree": "", "field": "", "dates": ""}],
+  "skills_full_list": [""],
+  "certifications": [{"name": "", "issuer": "", "date": ""}],
+  "featured_items": [{"text_snippet": "", "date": null, "engagement": null}],
+  "recent_posts": [{"text_snippet": "first 1-2 sentences", "date": "5d", "likes": 0, "comments": 0, "impressions": 0}],
+  "recommendations_received": [{"author": "", "relationship": "", "text": ""}],
+  "recommendations_given": [{"recipient": "", "text": ""}],
+  "languages": [""],
+  "projects": [{"name": "", "description": "", "dates": ""}],
+  "missing_fields": [],
+  "scrape_notes": []
 }

@@ -1,2 +1,1 @@
-reportlab
-jinja2
+# No third-party packages: the scripts use the Python 3.9+ standard library.
