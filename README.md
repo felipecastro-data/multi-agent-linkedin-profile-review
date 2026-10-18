@@ -1,32 +1,62 @@
 # LinkedIn Review — multi-agent career review
 
-A set of Claude Code subagents reviews my LinkedIn profile and career. The
-result lands in a responsive web app on Google Apps Script that works on
-desktop and mobile. One command runs the whole review: `/linkedin-review`.
+A Claude Code pipeline of four subagents that reviews a LinkedIn profile on
+two time horizons and publishes the result to a private web app on Google
+Apps Script (desktop + mobile). One command runs it: `/linkedin-review`.
 
-> v1 rendered a PDF. v2 replaces it with the web app, sets new agent scopes
-> (short-term recruiter, long-term career coach) and adds a shared Known
-> context file.
+- **Recruiter agent (next 1–12 months):** profile score, skill gaps, paste-ready profile edits, salary bands, search keywords.
+- **Career-coach agent (next 2–3 years):** industry, company size, target role, skill mandates, country, IC vs management — grounded in the WEF Future of Jobs report and the US BLS Occupational Outlook Handbook.
+- **Every market claim is cited** to a source the agent opened during that run.
 
-## How it works
+<p>
+  <img src="docs/app-profile.png" alt="Profile tab: score 77/100 with an eight-dimension scorecard and skill gaps" width="68%">
+  <img src="docs/app-actions-mobile.png" alt="Action plan on mobile in dark mode with weekly checklist" width="28%">
+</p>
 
+<img src="docs/app-sources.png" alt="Sources tab listing the WEF, BLS and market sources opened during the run" width="100%">
+
+> v2 replaced the original PDF report (v1) with the web app, split the agents
+> into short-term and long-term scopes, and added a shared "known context"
+> file so agents stop re-raising settled facts.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U(["/linkedin-review"]) --> S["scraper<br/>Claude in Chrome"]
+    S --> P[("profile JSON")]
+    P --> R["recruiter<br/>1–12 months"]
+    P --> C["career-coach<br/>2–3 years"]
+    K["known_context.md"] -.-> R & C
+    W(("WebSearch<br/>WEF · BLS · salary data")) -.-> R & C
+    R --> Y["synthesis"]
+    C --> Y
+    Y --> V{"validate_run.py"}
+    V --> I["Apps Script<br/>ingest (doPost + token)"]
+    I --> D[("Google Drive<br/>run JSON")]
+    D --> A["Apps Script viewer<br/>web app · only me"]
 ```
-/linkedin-review  (Claude Code skill)
- ├─ scraper        Claude in Chrome → data/profiles/<RUN_ID>.json
- ├─ recruiter  ┐   1–12 months: score, profile fixes, salary, keywords
- ├─ career-coach┘  2–3 years: industry, role, country, skills (WEF + BLS)
- ├─ synthesis      → data/runs/<RUN_ID>.json (schema v2)
- └─ publish.py ──► Apps Script "ingest" ──► Drive folder ──► Apps Script "viewer" (Only me)
-```
 
-| Agent | Horizon | Answers |
+| Agent | Tools | Output |
 |---|---|---|
-| recruiter | 1–12 months | Profile score; skill gaps in the current role; projects; recommendations; header/About; experience; certifications; master's or not; content strategy; salary (USD remote + COP); search keywords; paste-ready edits |
-| career-coach | 2–3 years | Industry; company size; stay or move and the target role; skill mandates; country (Colombia remote vs Mexico, Spain, US, plus one LatAm pick); tenure; IC vs management; market signals; SWOT; what to skip |
-| synthesis | — | Merges both agents into one run: summary, week/month/quarter plan, changes since the last run, conflict notes |
+| `scraper` | Claude in Chrome | Profile JSON (`data/schema.json`): header, About, experience, skills, certifications, projects, posts with engagement, recommendations |
+| `recruiter` | WebSearch, WebFetch | Score /100, scorecard, 11 answered areas, ranked paste-ready `changes`, sources `r*` |
+| `career-coach` | WebSearch, WebFetch | 7 strategic answers, 4–6 "master X within N months" mandates, country comparison, market signals, SWOT, skip-for-now, sources `s*` |
+| `synthesis` | Read, Write | One schema-v2 run: summary, week / month / quarter plan, changes since last run, notes on agent disagreements |
 
-Every agent reads `context/known_context.md` first. That file holds facts I
-have confirmed, which the agents must never flag.
+## Design choices
+
+- **Two horizons, two agents.** Profile tweaks and career strategy pulled each other off course in one prompt. The recruiter owns the profile; the coach is forbidden from commenting on LinkedIn copy.
+- **Shared known context.** Confirmed facts (e.g. an employer's rebrand history) live in one file every agent reads first, instead of being patched into each prompt after a bad run.
+- **Disagreements are kept, not hidden.** When the two agents give different salary bands or opposite advice, synthesis keeps both and writes a note.
+- **Probabilistic, not deterministic.** Two runs on the same profile can differ. Mitigations: cited sources, the known-context file, a scraper "carry-over" rule for lists LinkedIn fails to render, and `validate_run.py` checking ids and references before anything is published.
+- **Local by design.** Scraping needs a signed-in, interactive Chrome session, so the pipeline runs on my Mac, not in CI.
+- **Private by default.** Raw profiles and runs are gitignored. The viewer web app is deployed "Only myself"; the ingest endpoint is public but needs a secret token and never returns data. Two Apps Script projects keep those two access levels apart.
+- **No framework.** The app is one HTML file (vanilla JS, glassmorphism cards, a canvas particle field, light/dark). A small shim maps its data calls to `google.script.run`, so the same file can run elsewhere.
+
+## Tech stack
+
+Claude Code (skills + subagents) · Claude in Chrome · Python 3 standard library · Google Apps Script (HtmlService, ContentService, DriveApp) · Google Drive · vanilla HTML/CSS/JS
 
 ## Repo layout
 
@@ -34,91 +64,63 @@ have confirmed, which the agents must never flag.
 .claude/skills/linkedin-review/SKILL.md   orchestrator (/linkedin-review)
 .claude/agents/                           scraper, recruiter, career-coach, synthesis
 context/known_context.md                  confirmed facts every agent follows
-data/schema.json                          profile shape (data/ is otherwise gitignored)
-scripts/new_run.py                        RUN_ID, paths, previous profile
+data/schema.json                          profile shape (the rest of data/ is gitignored)
+scripts/new_run.py                        run id, paths, previous profile
 scripts/validate_run.py                   checks a run before publishing
 scripts/publish.py                        POSTs the run to the ingest web app
 apps-script/viewer/                       the app: Code.gs, Index.html, appsscript.json
 apps-script/ingest/                       doPost endpoint: Code.gs, appsscript.json
 ```
 
-## Setup (once)
+## Running it yourself
 
-### 1. Ingest project, which receives runs
+Requirements: Claude Code with the Claude in Chrome extension, Python 3.9+,
+a Google account. Change the profile URL in
+`.claude/skills/linkedin-review/SKILL.md` and the facts in
+`context/known_context.md` to your own.
 
-1. Go to [script.google.com](https://script.google.com), click **New
-   project** and name it `LinkedIn Review – ingest`.
+### 1. Ingest project (receives runs)
+1. [script.google.com](https://script.google.com) → **New project** → name it `LinkedIn Review – ingest`.
 2. Replace `Code.gs` with `apps-script/ingest/Code.gs`.
-3. In **Project Settings**, tick **Show "appsscript.json"**. Then replace
-   that file with `apps-script/ingest/appsscript.json`.
-4. Select `setup` in the function menu and click **Run**, then authorize it.
-   The execution log prints `FOLDER_ID` and `INGEST_TOKEN`.
-5. Go to **Deploy → New deployment → Web app**. Set **Execute as: Me** and
-   **Who has access: Anyone**. Copy the `/exec` URL.
-   - This project holds no data. It only writes into the folder, and only
-     when a request carries the token.
+3. **Project Settings** → tick **Show "appsscript.json"** → replace it with `apps-script/ingest/appsscript.json`.
+4. Open `Code.gs`, select `setup` → **Run** → authorize. The log prints `FOLDER_ID` and `INGEST_TOKEN`.
+5. **Deploy → New deployment → Web app**, Execute as **Me**, access **Anyone**. Copy the `/exec` URL.
 
-### 2. Viewer project, which is the app
-
-1. Click **New project** and name it `LinkedIn Review`.
-2. Replace `Code.gs` with `apps-script/viewer/Code.gs`.
-3. Add an HTML file named `Index` and paste in `apps-script/viewer/Index.html`.
-4. Replace `appsscript.json` with `apps-script/viewer/appsscript.json`.
-5. In **Project Settings → Script properties**, add `FOLDER_ID` with the
-   value from step 1.4.
-6. Go to **Deploy → New deployment → Web app**. Set **Execute as: Me** and
-   **Who has access: Only myself**. Open the URL and bookmark it. On iPhone,
-   use **Share → Add to Home Screen**.
+### 2. Viewer project (the app)
+1. **New project** → `LinkedIn Review`.
+2. Replace `Code.gs` with `apps-script/viewer/Code.gs`; add an HTML file `Index` with `apps-script/viewer/Index.html`; replace `appsscript.json` with `apps-script/viewer/appsscript.json`.
+3. **Project Settings → Script properties** → add `FOLDER_ID`.
+4. **Deploy → New deployment → Web app**, Execute as **Me**, access **Only myself**. Bookmark the URL (on iPhone: Share → Add to Home Screen).
 
 ### 3. Local
-
 ```bash
-cp .env.example .env              # paste LR_INGEST_URL and LR_INGEST_TOKEN
+cp .env.example .env               # LR_INGEST_URL and LR_INGEST_TOKEN
 python3 scripts/publish.py --ping  # expect: OK token accepted
-python3 scripts/publish.py --all   # backfill earlier runs
-python3 scripts/publish.py --checks  # backfill ticked actions (once)
 ```
 
-## Run a review
-
-1. Open Chrome, signed in to LinkedIn.
-2. In Claude Code (VS Code), open this folder.
-3. Type `@browser`, or turn on **Enabled by default** in `/chrome`.
-4. Run:
+### 4. Run
+Open Chrome signed in to LinkedIn. In Claude Code (VS Code: type `@browser` or
+enable Chrome by default in `/chrome`; terminal: `claude --chrome`):
 
 ```
 /linkedin-review
 ```
 
-A run takes about 10–15 minutes. Reload the app to see it.
+A run takes about 10–15 minutes; reload the app to see it.
 
-## Updating the app
+### Updating the app
+Edit `apps-script/viewer/Index.html`, paste it into the viewer project, then
+**Deploy → Manage deployments → Edit → New version** (the URL stays the same).
+Or with [clasp](https://github.com/google/clasp): enable the Apps Script API,
+add a gitignored `.clasp.json` (`{"scriptId":"…","rootDir":"."}`) in
+`apps-script/viewer/`, then `clasp push && clasp deploy -i <deploymentId>`.
 
-Edit `apps-script/viewer/Index.html`, then paste it into the viewer project.
-Publish with **Deploy → Manage deployments → Edit → Version: New version**.
-The URL stays the same.
+## Limitations
 
-To skip the copy-paste, use [clasp](https://github.com/google/clasp):
+- LinkedIn's lazy-loaded pages sometimes render empty to text tools; the scraper falls back to scrolling, section reads and screenshots, and carries unchanged lists over from the previous run (noted in the run).
+- Salary bands come from public surveys and job-board aggregates with different samples; the app shows both agents' figures when they disagree.
+- Advice is the agents' judgment from public sources, not a guarantee.
 
-1. Turn on the Apps Script API at
-   <https://script.google.com/home/usersettings>.
-2. Run `npm i -g @google/clasp && clasp login`.
-3. In `apps-script/viewer/`, create `.clasp.json` (gitignored):
-   `{"scriptId":"<viewer script id>","rootDir":"."}`
-4. After each change, run `clasp push` and then
-   `clasp deploy -i <deploymentId>`. Reusing the deployment ID keeps the URL.
+## License
 
-## Design choices
-
-- **Probabilistic, not deterministic.** Two runs on the same profile can
-  differ. The safeguards are:
-  - cited sources for every market claim
-  - a shared Known context file
-  - `validate_run.py`
-- **Privacy.**
-  - Raw profiles and runs stay in `data/`, which is gitignored, and in my
-    own Drive.
-  - The viewer is deployed "Only myself".
-  - The ingest endpoint is public but needs the token, and it never returns
-    data.
-- **Old runs keep rendering.** The app reads both schema v1 and v2 runs.
+[MIT](LICENSE)
