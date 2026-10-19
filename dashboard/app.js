@@ -15,12 +15,19 @@ const EDGES = [
   ['synthesis', 'orchestrator'],
 ];
 
+const ORDERS = {
+  scraper: 'Scraper, pull the profile.',
+  recruiter: 'Recruiter, short-term review.',
+  'career-coach': 'Coach, long-term plan.',
+  synthesis: 'Synthesis, merge both.',
+  publish: 'Validated. Publishing!',
+};
 const fmtTok = (n) => (n == null ? '—' : n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 1 : 2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'K' : String(Math.round(n)));
 const fmtUsd = (n) => (n == null ? '—' : '~$' + (n < 0.1 ? n.toFixed(3) : n.toFixed(2)));
 const fmtDur = (s) => (s == null ? '—' : Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'));
 const el = (tag, attrs = {}, html = '') => Object.assign(document.createElement(tag), attrs, html ? { innerHTML: html } : {});
 
-const state = { meta: null, index: [], run: null, selected: null, t0: performance.now() / 1000 };
+const state = { meta: null, index: [], run: null, selected: null, t0: performance.now() / 1000, prev: {}, bubbleUntil: 0, published: false };
 
 async function getJSON(path) {
   const res = await fetch(path, { cache: 'no-cache' });
@@ -239,6 +246,26 @@ office.onFrame = () => {
   }
   office.setStates(st);
 
+  // the manager briefs each agent as it starts, then announces the publish
+  const started = Object.keys(st).filter((id) => id !== 'orchestrator' && st[id] === 'working' && state.prev[id] !== 'working');
+  if (started.length) {
+    const line = started.length > 1
+      ? started.map((id) => agentsMeta[id].name).join(' & ') + ': go, in parallel.'
+      : ORDERS[started[0]];
+    say(line);
+    office.cue(started[0]);
+  }
+  const synthDone = st.synthesis === 'done';
+  if (synthDone && !state.published) { say(ORDERS.publish); state.published = true; }
+  if (!synthDone) state.published = false;
+  state.prev = st;
+  const bubble = $('bubble');
+  const bp = office.projectLabel('orchestrator');
+  const half = bubble.offsetWidth / 2 + 8;
+  const bx = Math.min(Math.max(bp.x, half), window.innerWidth - half);
+  bubble.style.transform = `translate(${bx.toFixed(1)}px, ${(bp.y - 38).toFixed(1)}px) translate(-50%, -100%)`;
+  bubble.hidden = performance.now() / 1000 > state.bubbleUntil || bp.behind;
+
   const flights = [];
   for (const [from, to] of EDGES) {
     const a = run.agents[from], b = run.agents[to];
@@ -257,6 +284,11 @@ office.onFrame = () => {
   $('clock-label').textContent = `${fmtDur(t)} / ${fmtDur(wall)} · replay ${Math.round(wall / LOOP_S)}×`;
   renderPipe(t, wall);
 };
+
+function say(text) {
+  $('bubble').textContent = text;
+  state.bubbleUntil = performance.now() / 1000 + 2.8;
+}
 
 // ---- boot --------------------------------------------------------------------------------------------
 try {
