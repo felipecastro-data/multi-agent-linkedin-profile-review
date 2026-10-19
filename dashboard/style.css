@@ -123,15 +123,11 @@ body {
 
 /* header tools */
 .tools { display: flex; align-items: center; gap: 6px; }
-.pill-btn, .icon-btn {
+.pill-btn {
   font: inherit; font-size: 12px; font-weight: 600; color: var(--ink); cursor: pointer;
   background: var(--track); border: 1px solid var(--glass-edge); border-radius: 9px; padding: 6px 10px;
 }
-.icon-btn { display: grid; place-items: center; width: 34px; height: 32px; padding: 0; }
-.icon-btn .wave { display: none; }
-.icon-btn[aria-pressed="true"] .wave { display: inline; }
-.icon-btn[aria-pressed="true"] .mute { display: none; }
-.pill-btn:hover, .icon-btn:hover, .pill-btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pill-btn:hover, .pill-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* compare runs */
 .compare {

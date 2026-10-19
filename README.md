@@ -29,7 +29,7 @@ documents fly from desk to desk as the run progresses, and clicking anyone opens
 a frosted card with their goal, tokens, cost, time and tool calls.
 
 - **Data:** `scripts/agent_stats.py <RUN_ID>` reads the Claude Code transcripts and writes numbers only (no prompts, no profile content) to `dashboard/data/`. Input and cache tokens are exact; output tokens are estimated from visible text, so cost is an approximate API list-price figure, not a subscription charge. `/linkedin-review` runs it after publishing and pushes the stats.
-- **While it replays:** each robot's speech bubble shows what it is doing from its real tool calls (searching, reading a site, writing a file), desk displays count its tool calls, a *Compare runs* panel shows cost and time per agent across runs, and optional office sound (off by default) adds typing, chimes and hand-off whooshes.
+- **While it replays:** each robot's speech bubble shows what it is doing from its real tool calls (searching, reading a site, writing a file), desk displays count its tool calls and a *Compare runs* panel shows cost and time per agent across runs.
 - **Hosting:** static site in `dashboard/`, deployed to GitHub Pages by `.github/workflows/pages.yml` (Settings → Pages → Source: GitHub Actions).
 - **Try it locally:** `python3 -m http.server 8765 --directory dashboard`, then open http://localhost:8765.
 - Three.js 0.170 is vendored in `dashboard/vendor/` (MIT), so there is no build step or CDN.

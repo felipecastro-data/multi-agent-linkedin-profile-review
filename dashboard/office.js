@@ -1048,9 +1048,6 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
         if (key !== st.countsKey) { st.countsKey = key; st.counts = { ...k }; drawCounter(st); }
       }
     },
-    // stereo position (-1..1) of each agent on screen, for sound panning
-    pan(id) { const p = projectLabel(id); return (p.x / Math.max(1, W)) * 2 - 1; },
-    mode(id) { return stations[id] && stations[id].mode; },
     setWall(info) { wallInfo = info; drawWall(); },
     // queue the manager to walk over and brief an agent ('publish' sends it back to its spot)
     cue(id) { const b = stations.orchestrator; if (!b.queue.includes(id) && b.target !== id) b.queue.push(id); },
