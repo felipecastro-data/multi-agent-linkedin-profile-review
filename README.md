@@ -22,8 +22,9 @@ Apps Script (desktop + mobile). One command runs it: `/linkedin-review`.
 ## Agent Office dashboard
 
 A separate 3D view of the pipeline itself rather than its analysis: a Three.js
-office where the four subagents type at a pinwheel of desks while the
-orchestrator stands beside them giving orders,
+office where four toy-robot subagents type at retro terminals in a pinwheel
+of desks, take coffee breaks when they finish, and a manager robot walks
+over to brief each one,
 documents fly from desk to desk as the run progresses, and clicking anyone opens
 a frosted card with their goal, tokens, cost, time and tool calls.
 

@@ -253,10 +253,10 @@ office.onFrame = () => {
       ? started.map((id) => agentsMeta[id].name).join(' & ') + ': go, in parallel.'
       : ORDERS[started[0]];
     say(line);
-    office.cue(started[0]);
+    started.forEach((id) => office.cue(id));
   }
   const synthDone = st.synthesis === 'done';
-  if (synthDone && !state.published) { say(ORDERS.publish); state.published = true; }
+  if (synthDone && !state.published) { say(ORDERS.publish); office.cue('publish'); state.published = true; }
   if (!synthDone) state.published = false;
   state.prev = st;
   const bubble = $('bubble');
@@ -287,7 +287,7 @@ office.onFrame = () => {
 
 function say(text) {
   $('bubble').textContent = text;
-  state.bubbleUntil = performance.now() / 1000 + 2.8;
+  state.bubbleUntil = performance.now() / 1000 + 3.2;
 }
 
 // ---- boot --------------------------------------------------------------------------------------------
