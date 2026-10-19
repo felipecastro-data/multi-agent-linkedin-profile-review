@@ -19,6 +19,18 @@ Apps Script (desktop + mobile). One command runs it: `/linkedin-review`.
 > into short-term and long-term scopes, and added a shared "known context"
 > file so agents stop re-raising settled facts.
 
+## Agent Office dashboard
+
+A separate 3D view of the pipeline itself rather than its analysis: a Three.js
+office where the four subagents and their orchestrator type at their desks,
+documents fly from desk to desk as the run progresses, and clicking anyone opens
+a frosted card with their goal, tokens, cost, time and tool calls.
+
+- **Data:** `scripts/agent_stats.py <RUN_ID>` reads the Claude Code transcripts and writes numbers only (no prompts, no profile content) to `dashboard/data/`. Input and cache tokens are exact; output tokens are estimated from visible text, so cost is an approximate API list-price figure, not a subscription charge. `/linkedin-review` runs it after publishing and pushes the stats.
+- **Hosting:** static site in `dashboard/`, deployed to GitHub Pages by `.github/workflows/pages.yml` (Settings → Pages → Source: GitHub Actions).
+- **Try it locally:** `python3 -m http.server 8765 --directory dashboard`, then open http://localhost:8765.
+- Three.js 0.170 is vendored in `dashboard/vendor/` (MIT), so there is no build step or CDN.
+
 ## Architecture
 
 ```mermaid
@@ -68,6 +80,8 @@ data/schema.json                          profile shape (the rest of data/ is gi
 scripts/new_run.py                        run id, paths, previous profile
 scripts/validate_run.py                   checks a run before publishing
 scripts/publish.py                        POSTs the run to the ingest web app
+scripts/agent_stats.py                    per-agent tokens, cost, timing for the dashboard
+dashboard/                                Agent Office: Three.js scene, stats JSON, Pages site
 apps-script/viewer/                       the app: Code.gs, Index.html, appsscript.json
 apps-script/ingest/                       doPost endpoint: Code.gs, appsscript.json
 ```

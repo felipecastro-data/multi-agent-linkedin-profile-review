@@ -1,0 +1,32 @@
+{
+  "runs": [
+    {
+      "run_id": "r20261018-1824",
+      "run_at": "2026-10-18T23:24:00Z",
+      "wall_s": 652.1,
+      "tokens": 3701319,
+      "input": 164,
+      "cache_write": 326508,
+      "cache_read": 3337428,
+      "output": 37219,
+      "cost_usd": 3.2253,
+      "cache_saved_usd": 12.6823,
+      "requests": 78,
+      "tool_calls": 153
+    },
+    {
+      "run_id": "r20261018-0748",
+      "run_at": "2026-10-18T12:48:00Z",
+      "wall_s": 1055.9,
+      "tokens": 5526063,
+      "input": 238,
+      "cache_write": 374595,
+      "cache_read": 5105450,
+      "output": 45780,
+      "cost_usd": 3.9924,
+      "cache_saved_usd": 19.4007,
+      "requests": 115,
+      "tool_calls": 197
+    }
+  ]
+}

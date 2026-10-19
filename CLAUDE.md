@@ -37,6 +37,16 @@ RUN_ID = `r<YYYYMMDD>-<HHMM>` in America/Bogota time (`scripts/new_run.py`).
   `scripts/validate_run.py` and the viewer (`apps-script/viewer/Index.html`)
   together; the app must keep rendering older runs.
 
+## Agent Office dashboard
+- `dashboard/` is a static Three.js site (GitHub Pages), separate from the
+  viewer. It shows the pipeline, not the analysis.
+- `scripts/agent_stats.py` writes `dashboard/data/` from Claude Code
+  transcripts: numbers only. Never put prompts, profile content or pay
+  figures there; the folder is public once pushed.
+- Output tokens are estimated; label cost as approximate wherever shown.
+- Agent goals/descriptions live in `dashboard/data/agents.json`; update it
+  when an agent's scope changes.
+
 ## Apps Script
 - `apps-script/viewer/` — `Code.gs` (Drive reads, checklist ticks),
   `Index.html` (the app; a small shim at the top maps its data calls to

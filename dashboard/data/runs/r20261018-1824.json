@@ -1,0 +1,194 @@
+{
+  "run_id": "r20261018-1824",
+  "run_at": "2026-10-18T23:24:00Z",
+  "wall_s": 652.1,
+  "price_basis": "API-equivalent list prices (USD per million tokens), 2026-10-06; excludes WebFetch helper-model calls",
+  "totals": {
+    "tokens": 3701319,
+    "input": 164,
+    "cache_write": 326508,
+    "cache_read": 3337428,
+    "output": 37219,
+    "cost_usd": 3.2253,
+    "cache_saved_usd": 12.6823,
+    "requests": 78,
+    "tool_calls": 153
+  },
+  "agents": {
+    "recruiter": {
+      "model": "claude-opus-5-5",
+      "models": {
+        "claude-opus-5-5": 11
+      },
+      "tokens": {
+        "input": 22,
+        "cache_write": 55746,
+        "cache_read": 266068,
+        "output": 10277,
+        "total": 332113
+      },
+      "output_source": "estimated",
+      "cost_usd": 0.5376,
+      "cost_split": {
+        "input": 0.0001,
+        "output": 0.2055,
+        "cache_read": 0.0532,
+        "cache_write": 0.2787
+      },
+      "cache_saved_usd": 1.0111,
+      "requests": 11,
+      "tool_calls": 25,
+      "tools": {
+        "WebFetch": 16,
+        "Bash": 6,
+        "WebSearch": 2,
+        "SubagentHandback": 1
+      },
+      "web_searches": 2,
+      "web_fetches": 16,
+      "start_offset_s": 250.2,
+      "duration_s": 227.8
+    },
+    "career-coach": {
+      "model": "claude-opus-5-5",
+      "models": {
+        "claude-opus-5-5": 22
+      },
+      "tokens": {
+        "input": 44,
+        "cache_write": 71394,
+        "cache_read": 793242,
+        "output": 14839,
+        "total": 879519
+      },
+      "output_source": "estimated",
+      "cost_usd": 0.8126,
+      "cost_split": {
+        "input": 0.0002,
+        "output": 0.2968,
+        "cache_read": 0.1586,
+        "cache_write": 0.357
+      },
+      "cache_saved_usd": 3.0143,
+      "requests": 22,
+      "tool_calls": 52,
+      "tools": {
+        "WebFetch": 37,
+        "Bash": 12,
+        "WebSearch": 2,
+        "SubagentHandback": 1
+      },
+      "web_searches": 2,
+      "web_fetches": 37,
+      "start_offset_s": 250.1,
+      "duration_s": 322.2
+    },
+    "synthesis": {
+      "model": "claude-opus-5-5",
+      "models": {
+        "claude-opus-5-5": 8
+      },
+      "tokens": {
+        "input": 16,
+        "cache_write": 50689,
+        "cache_read": 215335,
+        "output": 2784,
+        "total": 268824
+      },
+      "output_source": "estimated",
+      "cost_usd": 0.3523,
+      "cost_split": {
+        "input": 0.0001,
+        "output": 0.0557,
+        "cache_read": 0.0431,
+        "cache_write": 0.2534
+      },
+      "cache_saved_usd": 0.8183,
+      "requests": 8,
+      "tool_calls": 10,
+      "tools": {
+        "Bash": 8,
+        "Read": 1,
+        "SubagentHandback": 1
+      },
+      "web_searches": 0,
+      "web_fetches": 0,
+      "start_offset_s": 580.3,
+      "duration_s": 56.7
+    },
+    "scraper": {
+      "model": "claude-opus-5-5",
+      "models": {
+        "claude-opus-5-5": 26
+      },
+      "tokens": {
+        "input": 52,
+        "cache_write": 88640,
+        "cache_read": 1504107,
+        "output": 6173,
+        "total": 1598972
+      },
+      "output_source": "estimated",
+      "cost_usd": 0.8677,
+      "cost_split": {
+        "input": 0.0002,
+        "output": 0.1235,
+        "cache_read": 0.3008,
+        "cache_write": 0.4432
+      },
+      "cache_saved_usd": 5.7156,
+      "requests": 26,
+      "tool_calls": 56,
+      "tools": {
+        "mcp__claude-in-chrome__computer": 25,
+        "mcp__claude-in-chrome__javascript_tool": 12,
+        "mcp__claude-in-chrome__navigate": 7,
+        "Bash": 4,
+        "mcp__claude-in-chrome__get_page_text": 3,
+        "mcp__claude-in-chrome__tabs_context_mcp": 1,
+        "mcp__claude-in-chrome__tabs_create_mcp": 1,
+        "mcp__claude-in-chrome__find": 1,
+        "mcp__claude-in-chrome__tabs_close_mcp": 1,
+        "SubagentHandback": 1
+      },
+      "web_searches": 0,
+      "web_fetches": 0,
+      "start_offset_s": 12.5,
+      "duration_s": 227.4
+    },
+    "orchestrator": {
+      "model": "claude-opus-5-5",
+      "models": {
+        "claude-opus-5-5": 11
+      },
+      "tokens": {
+        "input": 30,
+        "cache_write": 60039,
+        "cache_read": 558676,
+        "output": 3146,
+        "total": 621891
+      },
+      "output_source": "estimated",
+      "cost_usd": 0.6551,
+      "cost_split": {
+        "input": 0.0001,
+        "output": 0.0629,
+        "cache_read": 0.1117,
+        "cache_write": 0.4803
+      },
+      "cache_saved_usd": 2.123,
+      "requests": 11,
+      "tool_calls": 10,
+      "tools": {
+        "Bash": 4,
+        "Agent": 4,
+        "ToolSearch": 1,
+        "mcp__claude-in-chrome__tabs_context_mcp": 1
+      },
+      "web_searches": 0,
+      "web_fetches": 0,
+      "start_offset_s": 0.0,
+      "duration_s": 652.1
+    }
+  }
+}

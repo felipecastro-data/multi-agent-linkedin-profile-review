@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Office</title>
+<meta name="description" content="A 3D office where four Claude Code subagents and their orchestrator work through a LinkedIn review run, with live token and cost stats.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232e6b2f'/%3E%3Crect x='7' y='9' width='18' height='12' rx='2' fill='%23fff'/%3E%3Crect x='10' y='23' width='12' height='2' rx='1' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+    "three": "./vendor/three.module.min.js",
+    "three/addons/": "./vendor/"
+} }
+</script>
+</head>
+<body>
+<canvas id="scene" aria-label="3D office with five working agents"></canvas>
+
+<header class="bar glass">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Agent Office</h1>
+      <p>Claude Code subagents on one run</p>
+    </div>
+  </div>
+  <label class="picker">
+    <span>Run</span>
+    <select id="run-select" aria-label="Choose a run"></select>
+  </label>
+  <dl class="totals" id="totals" aria-live="polite"></dl>
+</header>
+
+<div id="labels" aria-label="Agents"></div>
+
+<aside id="card" class="card glass" role="dialog" aria-modal="false" aria-labelledby="card-title" hidden>
+  <button class="close" id="card-close" aria-label="Close agent card">×</button>
+  <div class="card-head">
+    <span class="dot" id="card-dot"></span>
+    <div>
+      <p class="eyebrow" id="card-step"></p>
+      <h2 id="card-title"></h2>
+    </div>
+  </div>
+  <p class="goal" id="card-goal"></p>
+  <p class="desc" id="card-desc"></p>
+  <dl class="kv" id="card-meta"></dl>
+  <div class="stat-row" id="card-stats"></div>
+  <div class="split" id="card-split"></div>
+  <p class="foot" id="card-foot"></p>
+</aside>
+
+<section class="dock glass" id="dock" aria-label="Run overview">
+  <button class="dock-toggle" id="dock-toggle" aria-expanded="true">Run overview</button>
+  <div class="dock-body">
+    <div class="panel">
+      <h3>Pipeline</h3>
+      <ol class="pipe" id="pipe"></ol>
+    </div>
+    <div class="panel wide">
+      <h3>Timeline <span class="muted" id="clock-label"></span></h3>
+      <div id="timeline" class="timeline"></div>
+    </div>
+    <div class="panel">
+      <h3>Where the cost goes</h3>
+      <div id="split-chart" class="splitchart"></div>
+      <ul class="legend" id="legend"></ul>
+    </div>
+  </div>
+</section>
+
+<div id="status" class="status" role="status"></div>
+<noscript><p class="status">This dashboard needs JavaScript.</p></noscript>
+<script type="module" src="app.js"></script>
+</body>
+</html>
