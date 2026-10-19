@@ -22,7 +22,7 @@ function limb(r1, r2, len, mat) {
 
 const L1 = 0.19, L2 = 0.16, HAND = 0.045;
 export const SEAT_HIPS = 0.565;   // hips height when seated on a chair (seat top 0.5)
-export const STAND_HIPS = 0.47;
+export const STAND_HIPS = 0.485; // feet just touch the floor
 
 /**
  * opts: { accent, antenna: 'ball'|'twin'|'dish'|'ears'|'visor', scale, tie }
@@ -192,19 +192,29 @@ export function makeRobot(opts) {
     return { thigh, shin, foot };
   });
 
-  // thruster glow under the feet while gliding
-  const thruster = new THREE.Mesh(new THREE.CircleGeometry(0.2, 32), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0, depthWrite: false }));
-  thruster.rotation.x = -Math.PI / 2;
-  thruster.position.y = 0.012;
-  root.add(thruster);
-
-  // ---- pose helpers ------------------------------------------------------------
+  // sit: 1 seated, 0 standing. phase/amp drive the walk cycle while standing:
+  // legs swing in opposition, the knee bends on the forward swing, hips dip
+  // when the legs are apart and roll/twist over the stance leg.
   let sit = 1;
-  function setSit(v) {
+  function setGait(v, phase = 0, amp = 0) {
     sit = v;
-    hips.position.y = THREE.MathUtils.lerp(STAND_HIPS, SEAT_HIPS, v);
-    legs.forEach((l) => { l.thigh.rotation.x = 1.5 * v; l.shin.rotation.x = -1.45 * v; });
+    const a = amp * (1 - v);
+    let dip = 0;
+    legs.forEach((l, i) => {
+      const p = phase + (i ? Math.PI : 0);
+      const swing = Math.sin(p) * 0.42 * a;
+      const knee = -Math.max(0, Math.cos(p)) * 0.8 * a;
+      l.thigh.rotation.x = THREE.MathUtils.lerp(swing, 1.5, v);
+      l.shin.rotation.x = THREE.MathUtils.lerp(knee, -1.45, v);
+      dip = Math.max(dip, 0.4 * (1 - Math.cos(swing)));
+    });
+    hips.position.y = THREE.MathUtils.lerp(STAND_HIPS - dip - Math.abs(Math.sin(phase)) * 0.012 * a, SEAT_HIPS, v);
+    hips.rotation.z = Math.sin(phase) * 0.05 * a;
+    hips.rotation.y = Math.sin(phase) * 0.08 * a;
+    spine.rotation.y = -Math.sin(phase) * 0.1 * a;
+    return a ? Math.sin(phase) : 0; // swing signal for the arms
   }
+  const setSit = (v) => setGait(v, 0, 0);
   setSit(1);
 
   const tmp = new THREE.Vector3();
@@ -282,8 +292,8 @@ export function makeRobot(opts) {
   drawFace('wait', 0);
 
   return {
-    root, body, hips, spine, head, neckG, arms, legs, thruster, antennaBalls,
+    root, body, hips, spine, head, neckG, arms, legs, antennaBalls,
     torso, bodyMat: M.body, glowMat: M.glow,
-    reach, setArm, setSit, drawFace, get sit() { return sit; },
+    reach, setArm, setSit, setGait, drawFace, get sit() { return sit; },
   };
 }

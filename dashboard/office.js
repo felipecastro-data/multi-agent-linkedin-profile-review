@@ -11,7 +11,7 @@ import { makeRobot } from './robots.js';
 const R = 5;          // half the room size
 const FY = 0.1;       // floor surface height
 const H = 3.3;        // wall height
-const C = { x: 0, z: 0.6 }; // centre of the four-desk pod
+const C = { x: 0, z: 0.85 }; // centre of the four-desk pod
 // Pinwheel: each desk backs onto one arm of the cross divider around a centre column.
 const DESKS = {
   scraper: { x: C.x - 1.42, z: C.z - 0.56, yaw: Math.PI },
@@ -27,12 +27,16 @@ const ROBOTS = {
   orchestrator: { antenna: 'visor', scale: 1.15, tie: 0x2f4f8f },
 };
 const V2 = (x, z) => new THREE.Vector2(x, z);
-// walkway ring around the pod, in order; robots route along it
-const RING = [[-3, -3], [0, -3], [3, -3], [3, 0], [3, 3], [0, 3], [-3, 3], [-3, 0]].map(([x, z]) => V2(C.x + x, C.z + z));
-const KITCHEN_DOOR = 2; // ring index at the kitchenette opening
-const KITCHEN_CENTER = V2(2.95, -3.55);
-const KITCHEN_SPOTS = { scraper: V2(2.4, -3.45), recruiter: V2(2.95, -4.0), 'career-coach': V2(3.5, -3.45), synthesis: V2(2.95, -3.0) };
-const HOME = V2(-3.2, 3.7);
+// Walkway ring around the pod, in order; robots route along it. The top edge
+// runs between the career coach's desk and the end of the kitchenette wall,
+// and its third point sits in front of the kitchenette opening.
+const RING = [V2(-3, -2.0), V2(0, -2.0), V2(2.75, -1.9), V2(3, C.z), V2(3, C.z + 3), V2(0, C.z + 3), V2(-3, C.z + 3), V2(-3, C.z)];
+const KITCHEN_DOOR = 2; // ring index just outside the kitchenette opening
+const DOOR_IN = V2(2.7, -2.95); // just inside the opening
+const KITCHEN_CENTER = V2(2.95, -3.65);
+const KITCHEN_SPOTS = { scraper: V2(2.35, -3.4), recruiter: V2(2.45, -3.95), 'career-coach': V2(3.55, -3.4), synthesis: V2(3.5, -3.95) };
+const inKitchen = (p) => p.x > 1.9 && p.y < -2.45;
+const HOME = V2(-3.2, 4.15);
 
 const SCREEN_LINES = {
   scraper: ['navigate(profile_url)', 'scroll → experience', "click 'Show all skills'", 'read_page(about)', 'get_page_text()', 'extract headline', 'extract positions[]', 'note missing_fields', 'javascript_tool(dom)', 'write profile.json'],
@@ -72,24 +76,30 @@ function tube(points, r, mat) {
   return m;
 }
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-const angleLerp = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
 
 function deskToWorld(id, lx, lz) {
   const s = DESKS[id], c = Math.cos(s.yaw), n = Math.sin(s.yaw);
   return V2(s.x + lx * c + lz * n, s.z - lx * n + lz * c);
 }
-function nearestRing(p) {
-  let bi = 0, bd = Infinity;
-  RING.forEach((r, i) => { const d = r.distanceTo(p); if (d < bd) { bd = d; bi = i; } });
-  return bi;
-}
-function route(from, to, startIdx, goalIdx) {
-  const a = startIdx ?? nearestRing(from), b = goalIdx ?? nearestRing(to), n = RING.length;
-  const fwd = (b - a + n) % n, back = (a - b + n) % n, step = fwd <= back ? 1 : -1;
+function ringPath(a, b) {
+  const n = RING.length, fwd = (b - a + n) % n, back = (a - b + n) % n, step = fwd <= back ? 1 : -1;
   const pts = [];
   for (let i = a; ; i = (i + step + n) % n) { pts.push(RING[i].clone()); if (i === b) break; }
-  pts.push(to.clone());
   return pts;
+}
+const twoNearest = (p) => RING.map((r, i) => [r.distanceTo(p), i]).sort((x, y) => x[0] - y[0]).slice(0, 2).map((x) => x[1]);
+// Path from -> ring -> to; tries the two nearest ring points at each end and keeps the shortest.
+function route(from, to, startIdx, goalIdx) {
+  let best = null, bestLen = Infinity;
+  for (const a of startIdx != null ? [startIdx] : twoNearest(from)) {
+    for (const b of goalIdx != null ? [goalIdx] : twoNearest(to)) {
+      const pts = [...ringPath(a, b), to.clone()];
+      let d = 0, p = from;
+      for (const q of pts) { d += p.distanceTo(q); p = q; }
+      if (d < bestLen) { bestLen = d; best = pts; }
+    }
+  }
+  return best;
 }
 
 export function createOffice(canvas, { agents, onPick, onHover }) {
@@ -301,7 +311,7 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
   // ---- pod: white centre column + four framed green dividers ------------------------
   const pod = new THREE.Group();
   pod.add(rbox(0.72, 1.32, 0.72, 0.07, M.frame, C.x, FY + 0.66, C.z));
-  const ARM = 2.19, ARM_C = 0.36 + ARM / 2, DH = 1.28;
+  const ARM = 2.09, ARM_C = 0.36 + ARM / 2, DH = 1.28;
   for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     const alongX = dx !== 0;
     const cx = C.x + dx * ARM_C, cz = C.z + dz * ARM_C;
@@ -474,8 +484,8 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
       id, group, bot, chair: ch, ring, kbCv: d.kbCv, kbTex: d.kbTex, steam: d.steam, lampMat: d.lampMat,
       deskMug: d.mug, carryMug: mug, phase: Math.random() * 6, state: 'waiting', hot: 0, lean: -0.15, idleMix: 0,
       docLocal: new THREE.Vector3(-0.08, 1.45, -0.18),
-      mode: 'seated', doneFor: 0, sit: 1, pos: seat.clone(), yaw: spot.yaw, path: [], speed: 1.3,
-      seat, exit: deskToWorld(id, 0, 1.5), kitchen: KITCHEN_SPOTS[id], brief: deskToWorld(id, 1.3, 1.0),
+      mode: 'seated', doneFor: 0, sit: 1, pos: seat.clone(), yaw: spot.yaw, path: [], cruise: 1, vel: 0, stride: 0, turnStep: 0, turnSpeed: 0, headErr: 0,
+      seat, exit: deskToWorld(id, 0, 1.9), kitchen: KITCHEN_SPOTS[id], brief: deskToWorld(id, 1.3, 1.0),
     };
   }
   for (const id of Object.keys(DESKS)) buildStation(id);
@@ -499,7 +509,7 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
   boss.root.add(bossRing);
   stations.orchestrator = {
     id: 'orchestrator', bot: boss, ring: bossRing, phase: 1.3, state: 'waiting', hot: 0,
-    pos: HOME.clone(), yaw: Math.atan2(-(C.x - HOME.x), -(C.z - HOME.y)), path: [], speed: 1.5,
+    pos: HOME.clone(), yaw: Math.atan2(-(C.x - HOME.x), -(C.z - HOME.y)), path: [], cruise: 1, vel: 0, stride: 0, turnStep: 0, turnSpeed: 0, headErr: 0,
     queue: [], mode: 'home', target: null, briefUntil: 0,
   };
 
@@ -723,23 +733,57 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
   const KEYS_L = new THREE.Vector3(-0.22, 0.845, 0.3), KEYS_R = new THREE.Vector3(-0.0, 0.845, 0.3), BALL = new THREE.Vector3(0.135, 0.86, 0.31);
   const mugLow = new THREE.Vector3(0.13, 0.17, -0.2), mugHigh = new THREE.Vector3(0.06, 0.4, -0.24);
 
-  function move(st, dt) {
-    if (!st.path.length) return false;
-    const next = st.path[0];
-    const dx = next.x - st.pos.x, dz = next.y - st.pos.y;
-    const dist = Math.hypot(dx, dz), step = st.speed * dt;
-    if (dist <= step) { st.pos.copy(next); st.path.shift(); }
-    else { st.pos.x += (dx / dist) * step; st.pos.y += (dz / dist) * step; }
-    if (dist > 0.01) st.yaw = angleLerp(st.yaw, Math.atan2(-dx, -dz), Math.min(1, dt * 8));
-    return true;
+  // ---- walking: follow the path with eased speed, a capped turn rate and a step cycle ----
+  function remaining(st) {
+    let d = 0, p = st.pos;
+    for (const q of st.path) { d += p.distanceTo(q); p = q; }
+    return d;
   }
-  function place(st, hover) {
-    st.bot.root.position.set(st.pos.x, FY + hover, st.pos.y);
+  function turnBy(st, err, dt) {
+    const max = (3 + 2 * st.vel) * dt;
+    const d = THREE.MathUtils.clamp(err, -max, max);
+    st.yaw += d;
+    st.turnStep += Math.abs(d);
+    st.turnSpeed += (Math.abs(d) / Math.max(dt, 1e-3) - st.turnSpeed) * Math.min(1, dt * 10);
+    return d;
+  }
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  function turnTo(st, yaw, dt) { turnBy(st, wrap(yaw - st.yaw), dt); }
+  function stepWalk(st, dt) {
+    if (!st.path.length) { st.vel += (0 - st.vel) * Math.min(1, dt * 8); st.headErr = 0; return; }
+    if (st.path.length > 1 && st.pos.distanceTo(st.path[0]) < 0.12 + 0.15 * st.vel) st.path.shift(); // round the corner
+    const target = st.path[0];
+    const dx = target.x - st.pos.x, dz = target.y - st.pos.y;
+    const dist = Math.hypot(dx, dz);
+    const err = wrap(Math.atan2(-dx, -dz) - st.yaw);
+    st.headErr = err;
+    turnBy(st, err, dt);
+    // slow down when facing away (turn on the spot first) and when arriving
+    let vT = st.cruise * Math.pow(Math.max(0, Math.cos(err)), 3);
+    const left = remaining(st);
+    if (left < 0.8) vT *= Math.max(0.12, left / 0.8);
+    st.vel += (vT - st.vel) * Math.min(1, dt * (vT > st.vel ? 3 : 6));
+    const step = st.vel * dt;
+    st.pos.x -= Math.sin(st.yaw) * step;
+    st.pos.y -= Math.cos(st.yaw) * step;
+    st.stride += step;
+    if (st.path.length === 1 && dist < 0.1) { st.pos.copy(target); st.path.shift(); }
+  }
+  function walk(st, dt) {
+    for (let left = dt; left > 1e-4; left -= 0.03) stepWalk(st, Math.min(0.03, left)); // sub-steps keep steering stable on slow frames
+    return st.path.length > 0;
+  }
+  function gait(st, bot, sit) {
+    st.turnSpeed *= 0.9;
+    const amp = Math.min(1, st.vel / 0.45 + Math.min(0.7, st.turnSpeed / 2.5));
+    const phase = (st.stride / 0.62) * Math.PI * 2 + st.turnStep * 1.8;
+    const swing = bot.setGait(sit, phase, amp) * amp;
+    bot.spine.rotation.x = (1 - sit) * (0.03 + 0.07 * Math.min(1, st.vel / st.cruise));
+    return swing;
+  }
+  function place(st) {
+    st.bot.root.position.set(st.pos.x, FY, st.pos.y);
     st.bot.root.rotation.y = st.yaw;
-  }
-  function walkPose(bot, t, dt, moving) {
-    bot.thruster.material.opacity += ((moving ? 0.45 : 0) - bot.thruster.material.opacity) * Math.min(1, dt * 6);
-    bot.spine.rotation.x = moving ? 0.1 : 0;
   }
 
   function animateTypist(st, t, dt) {
@@ -748,30 +792,35 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
     st.doneFor = st.state === 'done' ? st.doneFor + dt : 0;
     if (st.mode === 'seated' && st.doneFor > 1.0) {
       st.mode = 'out';
-      st.path = [st.exit.clone(), ...route(st.exit, st.kitchen, undefined, KITCHEN_DOOR)];
-      st.speed = 1.3;
+      st.path = [st.exit.clone(), ...route(st.exit, DOOR_IN, undefined, KITCHEN_DOOR), st.kitchen.clone()];
+      st.cruise = 1.15;
     } else if ((st.mode === 'out' || st.mode === 'break') && st.state !== 'done') {
-      const fromKitchen = st.mode === 'break';
       st.mode = 'back';
-      st.path = [...route(st.pos, st.exit, fromKitchen ? KITCHEN_DOOR : undefined), st.seat.clone()];
-      st.speed = st.state === 'working' ? 2.8 : 1.6;
+      const leg = inKitchen(st.pos) ? [DOOR_IN.clone(), ...route(DOOR_IN, st.exit, KITCHEN_DOOR)] : route(st.pos, st.exit);
+      st.path = [...leg, st.seat.clone()];
+      st.cruise = st.state === 'working' ? 1.3 : 1.05;
     }
-    const standing = st.mode !== 'seated';
-    st.sit += ((standing ? 0 : 1) - st.sit) * Math.min(1, dt * 5);
-    b.setSit(st.sit);
-    let moving = false;
+    let walking = false;
     if (st.mode === 'seated') {
       st.pos.lerp(st.seat, Math.min(1, dt * 6));
-      st.yaw = angleLerp(st.yaw, DESKS[st.id].yaw, Math.min(1, dt * 6));
-    } else if (st.sit < 0.25) {
-      moving = move(st, dt);
-      if (!moving && st.mode === 'out') st.mode = 'break';
-      if (!moving && st.mode === 'back') st.mode = 'seated';
-      if (st.mode === 'break') st.yaw = angleLerp(st.yaw, Math.atan2(-(KITCHEN_CENTER.x - st.pos.x), -(KITCHEN_CENTER.y - st.pos.y)), Math.min(1, dt * 4));
+      const err = wrap(DESKS[st.id].yaw - st.yaw);
+      turnBy(st, err, dt);
+      st.vel = 0;
+      st.sit += ((Math.abs(err) < 0.35 ? 1 : 0) - st.sit) * Math.min(1, dt * 5);
+    } else {
+      st.sit += (0 - st.sit) * Math.min(1, dt * 5);
+      if (st.sit < 0.2) walking = walk(st, dt);
+      if (!walking && st.mode === 'out' && st.sit < 0.2) st.mode = 'break';
+      if (!walking && st.mode === 'back' && st.sit < 0.2) st.mode = 'seated';
+      if (st.mode === 'break') turnTo(st, Math.atan2(-(KITCHEN_CENTER.x - st.pos.x), -(KITCHEN_CENTER.y - st.pos.y)), dt);
     }
-    place(st, moving ? 0.05 + Math.sin(t * 7 + st.phase) * 0.012 : 0);
-    walkPose(b, t, dt, moving);
-    st.chair.position.z += ((standing ? 1.0 : 0.74) - st.chair.position.z) * Math.min(1, dt * 4);
+    const swing = gait(st, b, st.sit);
+    place(st);
+    const standing = st.mode !== 'seated' || st.sit < 0.9;
+    // the chair rolls aside so the robot can step out and back in
+    st.chair.position.x += ((standing ? -0.62 : 0) - st.chair.position.x) * Math.min(1, dt * 4);
+    st.chair.position.z += ((standing ? 0.95 : 0.74) - st.chair.position.z) * Math.min(1, dt * 4);
+    const moving = walking || st.vel > 0.05;
     const away = st.mode !== 'seated';
     st.carryMug.visible = away;
     st.deskMug.visible = !away;
@@ -798,8 +847,8 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
       });
       b.drawFace(working ? 'work' : st.state === 'done' ? 'done' : 'wait', t);
     } else {
-      b.neckG.rotation.x = 0.02 + Math.sin(t * 1.4 + st.phase) * 0.04;
-      b.neckG.rotation.y = st.mode === 'break' ? Math.sin(t * 0.6 + st.phase) * 0.3 : 0;
+      b.neckG.rotation.x = moving ? 0.06 + Math.abs(swing) * 0.03 : 0.02 + Math.sin(t * 1.4 + st.phase) * 0.04;
+      b.neckG.rotation.y = st.mode === 'break' && !moving ? Math.sin(t * 0.6 + st.phase) * 0.3 : THREE.MathUtils.clamp(st.headErr * 0.6, -0.5, 0.5);
       const sip = st.mode === 'break' && Math.sin(t * 0.8 + st.phase) > 0.75 ? 1 : 0;
       st.carryMug.position.lerp(sip ? mugHigh : mugLow, Math.min(1, dt * 4));
       const [left, right] = b.arms;
@@ -808,8 +857,7 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
       tgt.y -= 0.02;
       b.reach(right, tgt, 0.2);
       left.shoulder.rotation.y = 0;
-      const swing = moving ? Math.sin(t * 7 + st.phase) * 0.35 : 0;
-      b.setArm(left, 0.12 + swing, 0.35, 0);
+      b.setArm(left, 0.1 - swing * 0.45, 0.3 + Math.max(0, swing) * 0.25, 0);
       b.drawFace(moving ? 'walk' : 'coffee', t);
     }
   }
@@ -822,28 +870,29 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
       st.path = route(st.pos, target === 'publish' ? HOME : stations[target].brief);
       st.mode = 'walking';
     }
-    let moving = false;
+    let walking = false;
     if (st.mode === 'walking') {
-      moving = move(st, dt);
-      if (!moving) {
+      walking = walk(st, dt);
+      if (!walking) {
         if (st.target) { st.mode = 'brief'; st.briefUntil = t + 2.6; }
         else st.mode = 'home';
       }
     } else if (st.mode === 'brief') {
       const seat = stations[st.target].pos;
-      st.yaw = angleLerp(st.yaw, Math.atan2(-(seat.x - st.pos.x), -(seat.y - st.pos.y)), Math.min(1, dt * 5));
+      turnTo(st, Math.atan2(-(seat.x - st.pos.x), -(seat.y - st.pos.y)), dt);
       if (t > st.briefUntil) {
         st.target = null;
         if (!st.queue.length) { st.path = route(st.pos, HOME); st.mode = 'walking'; } else st.mode = 'home';
       }
     } else {
-      st.yaw = angleLerp(st.yaw, Math.atan2(-(C.x - st.pos.x), -(C.z - st.pos.y)) + Math.sin(t * 0.25) * 0.3, Math.min(1, dt * 2));
+      turnTo(st, Math.atan2(-(C.x - st.pos.x), -(C.z - st.pos.y)) + Math.sin(t * 0.25) * 0.3, dt * 0.5);
     }
-    place(st, moving ? 0.06 + Math.sin(t * 7) * 0.012 : 0);
-    walkPose(b, t, dt, moving);
+    const swing = gait(st, b, 0);
+    place(st);
+    const moving = walking || st.vel > 0.05;
     const briefing = st.mode === 'brief';
-    b.neckG.rotation.x = briefing ? 0 : moving ? 0.05 : 0.25 + Math.sin(t * 0.6) * 0.1;
-    b.neckG.rotation.y = briefing ? Math.sin(t * 2) * 0.08 : Math.sin(t * 0.5) * 0.2;
+    b.neckG.rotation.x = briefing ? 0 : moving ? 0.05 + Math.abs(swing) * 0.03 : 0.25 + Math.sin(t * 0.6) * 0.1;
+    b.neckG.rotation.y = briefing ? Math.sin(t * 2) * 0.08 : moving ? THREE.MathUtils.clamp(st.headErr * 0.6, -0.5, 0.5) : Math.sin(t * 0.5) * 0.2;
     const [left, right] = b.arms;
     tablet.getWorldPosition(tgt);
     left.shoulder.rotation.y = -0.3;
@@ -853,7 +902,7 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
       b.setArm(right, 1.45 + Math.sin(t * 5) * 0.12, 0.25, 0.1);
       right.fingers.forEach((f, k) => (f.rotation.x = k ? -1.2 : 0));
     } else if (moving) {
-      b.setArm(right, 0.1 + Math.sin(t * 7) * 0.35, 0.35, 0);
+      b.setArm(right, 0.1 + swing * 0.45, 0.3 + Math.max(0, -swing) * 0.25, 0);
     } else {
       tablet.getWorldPosition(tgt);
       b.reach(right, tgt.add(new THREE.Vector3(0, -0.03 + Math.max(0, Math.sin(t * 6)) * 0.03, 0)), 0.2);
