@@ -13,11 +13,13 @@ Usage:
 """
 import argparse
 import json
+import os
 import re
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -68,6 +70,54 @@ def run_start(run_id):
     return naive.replace(tzinfo=ZoneInfo("America/Bogota")).astimezone(timezone.utc)
 
 
+FILE_RE = re.compile(r"^[\w.-]+\.(json|md|py|txt)$")
+
+
+def tool_event(name, inp):
+    """A public-safe description of one tool call: a kind plus, at most, a
+    website host or a file name. Never queries, commands, prompts or content."""
+    inp = inp if isinstance(inp, dict) else {}
+
+    def host(url):
+        h = urlparse(str(url or "")).hostname or ""
+        return h[4:] if h.startswith("www.") else h
+
+    def fname(path):
+        b = os.path.basename(str(path or ""))
+        return b if FILE_RE.match(b) and not RUN_RE.search(b) else ""
+
+    if name == "WebSearch":
+        return ["search"]
+    if name == "WebFetch":
+        return ["fetch", host(inp.get("url"))]
+    if name in ("Write", "Edit", "Read"):
+        return [name.lower(), fname(inp.get("file_path"))]
+    if name == "Bash":
+        cmd = str(inp.get("command", ""))
+        for key, kind in (("validate_run", "validate"), ("publish.py", "publish"), ("new_run.py", "start"), ("agent_stats", "stats")):
+            if key in cmd:
+                return [kind]
+        return ["bash"]
+    if name == "Agent":
+        return ["agent", str(inp.get("subagent_type", ""))]
+    if name == "SubagentHandback":
+        return ["handback"]
+    if name.startswith("mcp__claude-in-chrome__"):
+        tool = name.rsplit("__", 1)[-1]
+        if tool == "navigate":
+            return ["browse", host(inp.get("url"))]
+        if tool in ("computer", "find", "form_input"):
+            return ["click"]
+        if tool in ("read_page", "get_page_text"):
+            return ["readpage"]
+        if tool == "javascript_tool":
+            return ["script"]
+        return ["tab"]
+    if name == "ToolSearch":
+        return None
+    return ["tool"]
+
+
 def summarize(rows, reported=None):
     """Token usage, cost and activity for a list of transcript rows.
 
@@ -79,7 +129,7 @@ def summarize(rows, reported=None):
     inputs (about 3.5 characters per token) and never goes below either of those
     figures. Thinking tokens are not visible and are not counted.
     """
-    msgs, tool_ids, tools = {}, set(), Counter()
+    msgs, tool_ids, tools, events = {}, set(), Counter(), []
     times = []
     visible_chars = 0
     for r in rows:
@@ -97,6 +147,9 @@ def summarize(rows, reported=None):
             if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("id") not in tool_ids:
                 tool_ids.add(c["id"])
                 tools[c["name"]] += 1
+                ev = tool_event(c["name"], c.get("input"))
+                if ev:
+                    events.append((ts(r["timestamp"]), [e for e in ev if e != ""]))
                 visible_chars += len(json.dumps(c.get("input", "")))
             elif isinstance(c, dict) and c.get("type") == "text" and prev is None:
                 visible_chars += len(c.get("text", ""))
@@ -165,6 +218,7 @@ def summarize(rows, reported=None):
         "tools": dict(tools.most_common()),
         "web_searches": tools.get("WebSearch", 0),
         "web_fetches": tools.get("WebFetch", 0),
+        "_events": events,
         "_start": min(times),
         "_end": max(times),
     }
@@ -238,6 +292,8 @@ def build(run_id, subs):
     begin = min(a["_start"] for a in agents.values())
     finish = max(a["_end"] for a in agents.values())
     for a in agents.values():
+        # [offset_s, kind, detail?] per tool call, for speech bubbles and desk counters
+        a["events"] = [[round((when - begin).total_seconds(), 1), *ev] for when, ev in sorted(a.pop("_events"), key=lambda e: e[0])]
         a["start_offset_s"] = round((a.pop("_start") - begin).total_seconds(), 1)
         a["duration_s"] = round((a.pop("_end") - begin).total_seconds() - a["start_offset_s"], 1)
 

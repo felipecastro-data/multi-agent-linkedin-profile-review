@@ -6,7 +6,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { makeRobot } from './robots.js';
+import { makeRobot } from './robots.js?v=5';
 
 const R = 5;          // half the room size
 const FY = 0.1;       // floor surface height
@@ -442,6 +442,37 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
     return { g, kbCv, kbTex, steam, lampMat, mug };
   }
 
+  // small two-sided display on each desk with the agent's running tool counts
+  function deskCounter() {
+    const g = new THREE.Group();
+    g.add(rbox(0.16, 0.02, 0.1, 0.01, M.white, 0, 0.01, 0));
+    g.add(cyl(0.012, 0.012, 0.08, M.steel, 0, 0.06, 0));
+    g.add(rbox(0.27, 0.17, 0.035, 0.03, M.white, 0, 0.18, 0));
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 150;
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.14), mat);
+    front.position.set(0, 0.18, 0.0185);
+    const back = front.clone();
+    back.position.z = -0.0185;
+    back.rotation.y = Math.PI;
+    g.add(front, back);
+    return { g, cv, tex };
+  }
+  function drawCounter(st) {
+    const c = st.counterCv.getContext('2d'), k = st.counts;
+    c.fillStyle = '#0b141c'; c.fillRect(0, 0, 256, 150);
+    c.fillStyle = agents[st.id].color; c.fillRect(0, 0, 256, 10);
+    c.fillStyle = '#8fa3b5'; c.font = '600 18px system-ui, sans-serif'; c.fillText('TOOL CALLS', 16, 40);
+    c.fillStyle = '#ffffff'; c.font = '800 54px system-ui, sans-serif'; c.fillText(String(k.tools), 16, 96);
+    c.font = '600 20px system-ui, sans-serif';
+    c.fillStyle = '#9be7a6'; c.fillText(`web ${k.web}`, 16, 134);
+    c.fillStyle = '#ffe19a'; c.fillText(`files ${k.files}`, 132, 134);
+    st.counterTex.needsUpdate = true;
+  }
+
   function carryMug() {
     const mug = new THREE.Group();
     mug.add(cyl(0.045, 0.042, 0.1, M.blue, 0, 0, 0));
@@ -461,6 +492,11 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
     group.rotation.y = spot.yaw;
     const d = desk(id);
     group.add(d.g);
+    const counter = deskCounter();
+    counter.g.position.set(0.4, 0.8, 0.1);
+    counter.g.rotation.y = 0.55;
+    counter.g.scale.setScalar(1.3);
+    d.g.add(counter.g);
     const ch = chair();
     ch.position.set(0, 0, 0.74);
     group.add(ch);
@@ -482,13 +518,13 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
     const seat = deskToWorld(id, 0, 0.7);
     stations[id] = {
       id, group, bot, chair: ch, ring, kbCv: d.kbCv, kbTex: d.kbTex, steam: d.steam, lampMat: d.lampMat,
-      deskMug: d.mug, carryMug: mug, phase: Math.random() * 6, state: 'waiting', hot: 0, lean: -0.15, idleMix: 0,
+      deskMug: d.mug, carryMug: mug, counterCv: counter.cv, counterTex: counter.tex, counts: { tools: 0, web: 0, files: 0 }, countsKey: '', phase: Math.random() * 6, state: 'waiting', hot: 0, lean: -0.15, idleMix: 0,
       docLocal: new THREE.Vector3(-0.08, 1.45, -0.18),
       mode: 'seated', doneFor: 0, sit: 1, pos: seat.clone(), yaw: spot.yaw, path: [], cruise: 1, vel: 0, stride: 0, turnStep: 0, turnSpeed: 0, headErr: 0,
       seat, exit: deskToWorld(id, 0, 1.9), kitchen: KITCHEN_SPOTS[id], brief: deskToWorld(id, 1.3, 1.0),
     };
   }
-  for (const id of Object.keys(DESKS)) buildStation(id);
+  for (const id of Object.keys(DESKS)) { buildStation(id); drawCounter(stations[id]); }
 
   // ---- the manager (orchestrator) walks between the desks -------------------------------
   const boss = makeRobot({ accent: agents.orchestrator.color, ...ROBOTS.orchestrator });
@@ -1004,6 +1040,17 @@ export function createOffice(canvas, { agents, onPick, onHover }) {
     setTheme,
     setStates(map) { for (const [id, s] of Object.entries(map)) if (stations[id]) stations[id].state = s; },
     setFlights(list) { flights = list; },
+    setCounters(map) {
+      for (const [id, k] of Object.entries(map)) {
+        const st = stations[id];
+        if (!st || !st.counterCv) continue;
+        const key = `${k.tools}/${k.web}/${k.files}`;
+        if (key !== st.countsKey) { st.countsKey = key; st.counts = { ...k }; drawCounter(st); }
+      }
+    },
+    // stereo position (-1..1) of each agent on screen, for sound panning
+    pan(id) { const p = projectLabel(id); return (p.x / Math.max(1, W)) * 2 - 1; },
+    mode(id) { return stations[id] && stations[id].mode; },
     setWall(info) { wallInfo = info; drawWall(); },
     // queue the manager to walk over and brief an agent ('publish' sends it back to its spot)
     cue(id) { const b = stations.orchestrator; if (!b.queue.includes(id) && b.target !== id) b.queue.push(id); },

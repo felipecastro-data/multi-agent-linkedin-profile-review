@@ -1,4 +1,7 @@
-import { createOffice } from './office.js';
+import { createOffice } from './office.js?v=6';
+import { createActivity } from './activity.js?v=5';
+import { createCompare } from './compare.js?v=5';
+import { createSound } from './sound.js?v=5';
 
 const $ = (id) => document.getElementById(id);
 const LOOP_S = 40;      // one run replayed in this many seconds
@@ -27,7 +30,7 @@ const fmtUsd = (n) => (n == null ? '—' : '~$' + (n < 0.1 ? n.toFixed(3) : n.to
 const fmtDur = (s) => (s == null ? '—' : Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'));
 const el = (tag, attrs = {}, html = '') => Object.assign(document.createElement(tag), attrs, html ? { innerHTML: html } : {});
 
-const state = { meta: null, index: [], run: null, selected: null, t0: performance.now() / 1000, prev: {}, bubbleUntil: 0, published: false };
+const state = { meta: null, index: [], run: null, selected: null, t0: performance.now() / 1000, prev: {}, bubbleUntil: 0, published: false, flying: new Set() };
 
 async function getJSON(path) {
   const res = await fetch(path, { cache: 'no-cache' });
@@ -67,6 +70,43 @@ for (const id of meta.order) {
   tags[id] = b;
 }
 
+const activity = createActivity(labelHost, agentsMeta, meta.order);
+
+// ---- sound (off by default; remembered per browser) ----------------------------------------
+const sound = createSound();
+const soundBtn = $('sound-btn');
+function setSound(on) {
+  sound.setEnabled(on);
+  soundBtn.setAttribute('aria-pressed', String(on));
+  soundBtn.setAttribute('aria-label', on ? 'Turn office sound off' : 'Turn office sound on');
+  try { localStorage.setItem('agent-office-sound', on ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
+}
+soundBtn.addEventListener('click', () => setSound(!sound.enabled));
+try {
+  // browsers only allow audio after a user gesture, so a remembered "on" waits for the first click
+  if (localStorage.getItem('agent-office-sound') === 'on') {
+    window.addEventListener('pointerdown', () => { if (!sound.enabled) setSound(true); }, { once: true });
+  }
+} catch (e) { /* storage unavailable */ }
+
+// ---- compare runs -----------------------------------------------------------------------------
+const compareEl = $('compare');
+const compare = createCompare({
+  panel: compareEl, list: $('cmp-list'), legend: $('cmp-legend'), table: $('cmp-table'), tip: $('cmp-tip'),
+  agentsMeta, loadRun: (id) => getJSON(`data/runs/${id}.json`),
+  onPick: (id) => { $('run-select').value = id; loadRun(id); closeCompare(); },
+  fmt: { usd: fmtUsd, tok: fmtTok, dur: fmtDur },
+});
+function closeCompare() { compareEl.hidden = true; $('compare-btn').focus(); }
+$('compare-btn').addEventListener('click', () => {
+  if (!compareEl.hidden) return closeCompare();
+  if (state.selected) select(null);
+  compareEl.hidden = false;
+  compare.render(state.index);
+  $('compare-close').focus();
+});
+$('compare-close').addEventListener('click', closeCompare);
+
 // ---- run data ----------------------------------------------------------------------------
 const colorOf = (id) => agentsMeta[id].color;
 const agentStats = (id) => (state.run && state.run.agents[id]) || null;
@@ -83,6 +123,8 @@ async function loadRun(id) {
   }
   setStatus('');
   state.t0 = performance.now() / 1000;
+  activity.reset();
+  state.flying.clear();
   renderTotals();
   renderTimeline();
   renderSplitChart();
@@ -213,7 +255,11 @@ function select(id) {
   }
 }
 $('card-close').addEventListener('click', () => select(null));
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.selected) select(null); });
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!compareEl.hidden) closeCompare();
+  else if (state.selected) select(null);
+});
 
 const dock = $('dock');
 $('dock-toggle').addEventListener('click', () => {
@@ -223,7 +269,7 @@ $('dock-toggle').addEventListener('click', () => {
 if (window.innerWidth <= 820) { dock.classList.add('closed'); $('dock-toggle').setAttribute('aria-expanded', 'false'); }
 
 // ---- playback + labels each frame --------------------------------------------------------------
-office.onFrame = () => {
+office.onFrame = (dt) => {
   for (const id of meta.order) {
     const p = office.projectLabel(id);
     const t = tags[id];
@@ -255,6 +301,8 @@ office.onFrame = () => {
     say(line);
     started.forEach((id) => office.cue(id));
   }
+  // a soft chime as each agent finishes
+  for (const id of Object.keys(st)) if (id !== 'orchestrator' && st[id] === 'done' && state.prev[id] === 'working') sound.chime(office.pan(id));
   const synthDone = st.synthesis === 'done';
   if (synthDone && !state.published) { say(ORDERS.publish); office.cue('publish'); state.published = true; }
   if (!synthDone) state.published = false;
@@ -266,6 +314,14 @@ office.onFrame = () => {
   bubble.style.transform = `translate(${bx.toFixed(1)}px, ${(bp.y - 38).toFixed(1)}px) translate(-50%, -100%)`;
   bubble.hidden = performance.now() / 1000 > state.bubbleUntil || bp.behind;
 
+  // what each agent is doing right now, from its recorded tool calls
+  const counts = activity.update(run, t, holding, {
+    project: (id) => office.projectLabel(id),
+    mute: (id) => id === 'orchestrator' && !bubble.hidden,
+  });
+  office.setCounters(counts);
+  sound.typing(dt, Object.keys(st).filter((id) => id !== 'orchestrator' && st[id] === 'working' && office.mode(id) === 'seated').map((id) => office.pan(id)));
+
   const flights = [];
   for (const [from, to] of EDGES) {
     const a = run.agents[from], b = run.agents[to];
@@ -276,6 +332,11 @@ office.onFrame = () => {
     const p = (t - begin) / (arrive - begin);
     if (p > 0 && p < 1 && !holding) flights.push({ from, to, p });
   }
+  for (const f of flights) {
+    const key = f.from + '>' + f.to;
+    if (!state.flying.has(key)) { state.flying.add(key); sound.whoosh(office.pan(f.from)); }
+  }
+  for (const key of [...state.flying]) if (!flights.some((f) => f.from + '>' + f.to === key)) state.flying.delete(key);
   office.setFlights(flights);
 
   for (const [id, tag] of Object.entries(tags)) tag.dataset.state = st[id];

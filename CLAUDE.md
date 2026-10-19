@@ -41,8 +41,11 @@ RUN_ID = `r<YYYYMMDD>-<HHMM>` in America/Bogota time (`scripts/new_run.py`).
 - `dashboard/` is a static Three.js site (GitHub Pages), separate from the
   viewer. It shows the pipeline, not the analysis.
 - `scripts/agent_stats.py` writes `dashboard/data/` from Claude Code
-  transcripts: numbers only. Never put prompts, profile content or pay
-  figures there; the folder is public once pushed.
+  transcripts: numbers plus tool-event kinds, website hosts and generic file
+  names (no run ids). Never put prompts, search queries, commands, profile
+  content or pay figures there; the folder is public once pushed.
+- When `dashboard/` JS or CSS changes, bump the `?v=` numbers in
+  `index.html` and the imports in `app.js` so cached pages stay consistent.
 - Output tokens are estimated; label cost as approximate wherever shown.
 - Agent goals/descriptions live in `dashboard/data/agents.json`; update it
   when an agent's scope changes.
