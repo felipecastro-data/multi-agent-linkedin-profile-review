@@ -1462,10 +1462,10 @@ function loadScene() {
       }
 
       // ---- loop -----------------------------------------------------------------------------------
-      let last = performance.now() / 1000, screenClock = 0, clockT = 0, onFrame = null, running = true;
+      let last = performance.now() / 1000, screenClock = 0, clockT = 0, onFrame = null, running = true, raf = 0;
       function frame() {
         if (!running) return;
-        requestAnimationFrame(frame);
+        raf = requestAnimationFrame(frame);
         const now = performance.now() / 1000;
         const rawDt = Math.min(0.6, now - last); // behaviour uses real time so robots keep pace on slow frames
         const dt = Math.min(0.05, rawDt);
@@ -1551,13 +1551,14 @@ function loadScene() {
 
       resize();
       new ResizeObserver(resize).observe(canvas);
-      requestAnimationFrame(frame);
+      raf = requestAnimationFrame(frame);
 
       return {
         focus,
         resetView,
-        pause() { running = false; },
-        resume() { if (running) return; running = true; last = performance.now() / 1000; requestAnimationFrame(frame); },
+        // cancel the queued frame too: a hidden page keeps it pending, and a second loop would start on resume
+        pause() { running = false; cancelAnimationFrame(raf); },
+        resume() { if (running) return; running = true; last = performance.now() / 1000; raf = requestAnimationFrame(frame); },
         setTheme,
         setStates(map) { for (const [id, s] of Object.entries(map)) if (stations[id]) stations[id].state = s; },
         setFlights(list) { flights = list; },
@@ -1576,7 +1577,7 @@ function loadScene() {
         projectLabel,
         set onFrame(fn) { onFrame = fn; },
         get selected() { return selectedId; },
-        dispose() { running = false; renderer.dispose(); },
+        dispose() { running = false; cancelAnimationFrame(raf); renderer.dispose(); },
         _debug: { camera, controls, stations, docs, hq, scene },
       };
     }
