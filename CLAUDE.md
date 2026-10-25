@@ -13,8 +13,9 @@ mobile). One command runs everything: `/linkedin-review`.
   career-coach ┘                    → data/work/<RUN_ID>/career_coach.json
   synthesis                         → data/runs/<RUN_ID>.json   (schema v2)
   scripts/validate_run.py → scripts/publish.py
+  scripts/agent_stats.py            → data/stats/<RUN_ID>.json → publish.py --stats
   → Apps Script "ingest" web app → Drive folder "LinkedIn Review data"
-  → Apps Script "viewer" web app (Only me) renders it
+  → Apps Script "viewer" web app (Only me) renders it, Office tab included
 ```
 RUN_ID = `r<YYYYMMDD>-<HHMM>` in America/Bogota time (`scripts/new_run.py`).
 
@@ -37,22 +38,28 @@ RUN_ID = `r<YYYYMMDD>-<HHMM>` in America/Bogota time (`scripts/new_run.py`).
   `scripts/validate_run.py` and the viewer (`apps-script/viewer/Index.html`)
   together; the app must keep rendering older runs.
 
-## Agent Office dashboard
-- `dashboard/` is a static Three.js site (GitHub Pages), separate from the
-  viewer. It shows the pipeline, not the analysis.
-- `scripts/agent_stats.py` writes `dashboard/data/` from Claude Code
-  transcripts: numbers plus tool-event kinds, website hosts and generic file
-  names (no run ids). Never put prompts, search queries, commands, profile
-  content or pay figures there; the folder is public once pushed.
-- When `dashboard/` JS or CSS changes, bump the `?v=` numbers in
-  `index.html` and the imports in `app.js` so cached pages stay consistent.
+## Agent Office (viewer "Office" tab)
+- `apps-script/viewer/Office.html` is the 3D office (Three.js 0.170 ES
+  modules from jsDelivr, loaded the first time the tab opens) plus its tab
+  UI; `Index.html` includes it and calls `LROffice.view/attach/detach`. It
+  shows the pipeline, not the analysis.
+- `scripts/agent_stats.py` writes `data/stats/<RUN_ID>.json` from Claude
+  Code transcripts: numbers plus tool-event kinds, website hosts and generic
+  file names. Never put prompts, search queries, commands, profile content or
+  pay figures there. `publish.py --stats` sends it to Drive as `stats_<id>.json`.
 - Output tokens are estimated; label cost as approximate wherever shown.
-- Agent goals/descriptions live in `dashboard/data/agents.json`; update it
-  when an agent's scope changes.
+- Agent goals/descriptions live in the `META` constant in `Office.html`;
+  update it when an agent's scope changes.
+- `python3 scripts/preview_viewer.py` + the `viewer-preview` launch entry
+  previews the app locally with data from `data/` (output stays in `data/`).
+- `dashboard/` + `.github/workflows/pages.yml` are the old GitHub Pages copy,
+  frozen (no new stats) and due for removal; don't edit them.
 
 ## Apps Script
 - `apps-script/viewer/` — `Code.gs` (Drive reads, checklist ticks),
   `Index.html` (the app; a small shim at the top maps its data calls to
-  `google.script.run`). Edit the app here, then push with clasp (README).
+  `google.script.run`), `Office.html` (Office tab). Edit the app here, then
+  push with clasp (README): `clasp push && clasp deploy -i <deploymentId>`
+  from the folder, so the web app URL stays the same.
 - `apps-script/ingest/` — `doPost` that saves runs/profiles to Drive.
 - Never print or commit `LR_INGEST_TOKEN`.

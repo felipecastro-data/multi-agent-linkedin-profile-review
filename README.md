@@ -19,20 +19,19 @@ Apps Script (desktop + mobile). One command runs it: `/linkedin-review`.
 > into short-term and long-term scopes, and added a shared "known context"
 > file so agents stop re-raising settled facts.
 
-## Agent Office dashboard
+## Agent Office
 
-A separate 3D view of the pipeline itself rather than its analysis: a Three.js
+The app's **Office** tab is a 3D view of the pipeline itself rather than its analysis: a Three.js
 office where four toy-robot subagents type at retro terminals in a pinwheel
 of desks, take coffee breaks when they finish, and a manager robot walks
 over to brief each one,
 documents fly from desk to desk as the run progresses, and clicking anyone opens
 a frosted card with their goal, tokens, cost, time and tool calls.
 
-- **Data:** `scripts/agent_stats.py <RUN_ID>` reads the Claude Code transcripts and writes numbers only (no prompts, no profile content) to `dashboard/data/`. Input and cache tokens are exact; output tokens are estimated from visible text, so cost is an approximate API list-price figure, not a subscription charge. `/linkedin-review` runs it after publishing and pushes the stats.
-- **While it replays:** each robot's speech bubble shows what it is doing from its real tool calls (searching, reading a site, writing a file), desk displays count its tool calls and a *Compare runs* panel shows cost and time per agent across runs.
-- **Hosting:** static site in `dashboard/`, deployed to GitHub Pages by `.github/workflows/pages.yml` (Settings → Pages → Source: GitHub Actions).
-- **Try it locally:** `python3 -m http.server 8765 --directory dashboard`, then open http://localhost:8765.
-- Three.js 0.170 is vendored in `dashboard/vendor/` (MIT), so there is no build step or CDN.
+- **Data:** `scripts/agent_stats.py <RUN_ID>` reads the Claude Code transcripts and writes numbers only (no prompts, no profile content) to `data/stats/`; `scripts/publish.py --stats <RUN_ID>` sends them to the same Drive folder as the runs. Input and cache tokens are exact; output tokens are estimated from visible text, so cost is an approximate API list-price figure, not a subscription charge. `/linkedin-review` does both after publishing.
+- **While it replays:** speech bubbles and a status pill show what each robot is doing from its real tool calls (searching, reading a site, writing a file), desk displays count its tool calls, and the tab adds totals, a run timeline, cost by token type and a *Compare runs* panel. It follows the app's run picker.
+- **Code:** `apps-script/viewer/Office.html`, included by `Index.html`. Three.js 0.170 (MIT) loads from jsDelivr the first time the tab opens, so there is no build step.
+- **Try it locally:** `python3 scripts/preview_viewer.py`, then `python3 -m http.server 8766 --directory data/preview` and open http://localhost:8766 (uses your local `data/`).
 
 ## Architecture
 
@@ -83,9 +82,9 @@ data/schema.json                          profile shape (the rest of data/ is gi
 scripts/new_run.py                        run id, paths, previous profile
 scripts/validate_run.py                   checks a run before publishing
 scripts/publish.py                        POSTs the run to the ingest web app
-scripts/agent_stats.py                    per-agent tokens, cost, timing for the dashboard
-dashboard/                                Agent Office: Three.js scene, stats JSON, Pages site
-apps-script/viewer/                       the app: Code.gs, Index.html, appsscript.json
+scripts/agent_stats.py                    per-agent tokens, cost, timing for the Office tab
+scripts/preview_viewer.py                 local preview of the app from data/
+apps-script/viewer/                       the app: Code.gs, Index.html, Office.html, appsscript.json
 apps-script/ingest/                       doPost endpoint: Code.gs, appsscript.json
 ```
 
@@ -105,7 +104,7 @@ a Google account. Change the profile URL in
 
 ### 2. Viewer project (the app)
 1. **New project** → `LinkedIn Review`.
-2. Replace `Code.gs` with `apps-script/viewer/Code.gs`; add an HTML file `Index` with `apps-script/viewer/Index.html`; replace `appsscript.json` with `apps-script/viewer/appsscript.json`.
+2. Replace `Code.gs` with `apps-script/viewer/Code.gs`; add HTML files `Index` and `Office` with `apps-script/viewer/Index.html` and `Office.html`; replace `appsscript.json` with `apps-script/viewer/appsscript.json`.
 3. **Project Settings → Script properties** → add `FOLDER_ID`.
 4. **Deploy → New deployment → Web app**, Execute as **Me**, access **Only myself**. Bookmark the URL (on iPhone: Share → Add to Home Screen).
 
@@ -126,7 +125,7 @@ enable Chrome by default in `/chrome`; terminal: `claude --chrome`):
 A run takes about 10–15 minutes; reload the app to see it.
 
 ### Updating the app
-Edit `apps-script/viewer/Index.html`, paste it into the viewer project, then
+Edit `apps-script/viewer/Index.html` (or `Office.html`), paste it into the viewer project, then
 **Deploy → Manage deployments → Edit → New version** (the URL stays the same).
 Or with [clasp](https://github.com/google/clasp): enable the Apps Script API,
 add a gitignored `.clasp.json` (`{"scriptId":"…","rootDir":"."}`) in

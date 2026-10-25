@@ -3,7 +3,8 @@
 
 Usage:
   python3 scripts/publish.py <RUN_ID>     publish data/runs/<RUN_ID>.json + data/profiles/<RUN_ID>.json
-  python3 scripts/publish.py --all        publish every run/profile in data/ (backfill or re-sync)
+  python3 scripts/publish.py --all        publish every run/profile/stats file in data/ (backfill or re-sync)
+  python3 scripts/publish.py --stats <RUN_ID>   publish data/stats/<RUN_ID>.json (Office tab)
   python3 scripts/publish.py --checks     push data/checks_backfill.json (one-time, replaces ticks)
   python3 scripts/publish.py --ping       check the ingest URL and token
 
@@ -63,6 +64,12 @@ def send(env: dict, kind: str, path: Path) -> bool:
 
 
 def main(argv: list) -> int:
+    if len(argv) == 2 and argv[0] == "--stats":
+        path = ROOT / "data" / "stats" / f"{argv[1]}.json"
+        if not path.exists():
+            print("FAIL stats", argv[1], "missing", path)
+            return 1
+        return 0 if send(load_env(), "stats", path) else 1
     if len(argv) != 1:
         print(__doc__)
         return 2
@@ -93,6 +100,9 @@ def main(argv: list) -> int:
             ok = False
             continue
         ok &= send(env, "run", run)   # run last: the app shows a run as soon as it lands
+        stats = ROOT / "data" / "stats" / f"{rid}.json"
+        if arg == "--all" and stats.exists():
+            ok &= send(env, "stats", stats)
     return 0 if ok else 1
 
 

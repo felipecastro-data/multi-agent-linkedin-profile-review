@@ -53,14 +53,14 @@ Launch the `synthesis` subagent with: profile, previous profile (or
    and the run. On FAIL, show the error and stop.
 3. Do not commit anything from `data/`: it is gitignored on purpose.
 
-## Step 5 — Dashboard stats
-Numbers for the Agent Office dashboard (tokens, cost, timing per agent; no
-prompts or profile content).
-1. `python3 scripts/agent_stats.py <RUN_ID>` — expect `OK`. On SKIP/FAIL say
-   so in one line and go on to Step 6.
-2. Commit and push only the stats so GitHub Pages updates:
-   `git add dashboard/data && git commit -m "Dashboard stats for <RUN_ID>" && git push`.
-   Never add anything else. If the push fails, say so; do not retry in a loop.
+## Step 5 — Agent stats
+Numbers for the app's Office tab (tokens, cost, timing per agent; no prompts
+or profile content).
+1. `python3 scripts/agent_stats.py <RUN_ID>` — expect `OK` (writes
+   `data/stats/<RUN_ID>.json`). On SKIP/FAIL say so in one line and go on to
+   Step 6.
+2. `python3 scripts/publish.py --stats <RUN_ID>` — expect `OK`. On FAIL, show
+   the error in one line and go on. Nothing is committed.
 
 ## Step 6 — Report
 Reply in 3–5 short lines: the profile score, the target role and country

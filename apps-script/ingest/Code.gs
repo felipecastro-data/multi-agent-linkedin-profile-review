@@ -1,13 +1,13 @@
 /**
  * LinkedIn Review — ingest web app (deploy: Execute as me, Access: Anyone).
- * Claude Code POSTs each run here; the script saves it as a JSON file in the
+ * Claude Code POSTs each run (and its profile and agent stats) here; the script saves it as a JSON file in the
  * Drive folder the viewer reads. Every request must carry INGEST_TOKEN.
  * This project serves no review data: doGet only returns "ok".
  *
  * First time: run setup() once from the editor, copy the two values it logs.
  */
 
-const KINDS = { run: 'run_', profile: 'profile_' };
+const KINDS = { run: 'run_', profile: 'profile_', stats: 'stats_' };
 const ID_RE = /^r\d{8}-\d{4}$/;
 const MAX_BYTES = 400 * 1024;
 
@@ -43,7 +43,7 @@ function doPost(e) {
       return reply_(write_(folder, name, JSON.stringify(body.data || {})));
     }
     const prefix = KINDS[body.kind];
-    if (!prefix) return reply_({ ok: false, error: 'kind must be run, profile or checks' });
+    if (!prefix) return reply_({ ok: false, error: 'kind must be run, profile, stats or checks' });
     if (!ID_RE.test(body.id || '')) return reply_({ ok: false, error: 'id must look like r20261015-2302' });
     if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) {
       return reply_({ ok: false, error: 'data must be a JSON object' });

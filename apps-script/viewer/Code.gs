@@ -1,16 +1,21 @@
 /**
  * LinkedIn Review — viewer web app (deploy: Execute as me, Access: Only myself).
- * Reads run / profile JSON files that the ingest web app saved to one Drive
- * folder, and stores action-checklist ticks in checks.json in that folder.
+ * Reads run / profile / agent-stats JSON files that the ingest web app saved to
+ * one Drive folder, and stores action-checklist ticks in checks.json there.
+ * Index.html includes Office.html (the 3D Agent Office tab) via include().
  *
  * Script property required: FOLDER_ID (printed by the ingest project's setup()).
  */
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('LinkedIn Review')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
     .setFaviconUrl('https://www.gstatic.com/images/branding/product/1x/apps_script_48dp.png');
+}
+
+function include(name) {
+  return HtmlService.createHtmlOutputFromFile(name).getContent();
 }
 
 function folder_() {
@@ -25,12 +30,17 @@ function readJson_(name) {
 }
 
 /** All runs, newest first, as a JSON string: [{id, data}]. */
-function listRuns() {
+function listRuns() { return list_(/^run_(r\d{8}-\d{4})\.json$/); }
+
+/** Agent Office stats (tokens, cost, timing per agent), newest first: [{id, data}]. */
+function listStats() { return list_(/^stats_(r\d{8}-\d{4})\.json$/); }
+
+function list_(re) {
   const out = [];
   const it = folder_().getFiles();
   while (it.hasNext()) {
     const f = it.next();
-    const m = f.getName().match(/^run_(r\d{8}-\d{4})\.json$/);
+    const m = f.getName().match(re);
     if (!m) continue;
     try { out.push({ id: m[1], data: JSON.parse(f.getBlob().getDataAsString('UTF-8')) }); }
     catch (e) { console.warn('Skipping unreadable ' + f.getName()); }

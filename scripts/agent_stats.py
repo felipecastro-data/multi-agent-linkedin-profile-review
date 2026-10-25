@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Per-agent token, cost and timing stats for one run, for the 3D dashboard.
+"""Per-agent token, cost and timing stats for one run, for the app's Office tab.
 
 Reads the Claude Code transcripts of the session that ran /linkedin-review
 (one file per subagent plus the main session) and writes numbers only, no
-prompts or outputs, to dashboard/data/runs/<RUN_ID>.json and refreshes
-dashboard/data/index.json.
+prompts or outputs, to data/stats/<RUN_ID>.json (gitignored). Publish it with
+scripts/publish.py --stats <RUN_ID>.
 
 Usage:
   python3 scripts/agent_stats.py <RUN_ID>
@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "dashboard" / "data"
+OUT = ROOT / "data" / "stats"
 RUN_RE = re.compile(r"r\d{8}-\d{4}")
 AGENTS = ("scraper", "recruiter", "career-coach", "synthesis")
 
@@ -318,14 +318,6 @@ def build(run_id, subs):
     }
 
 
-def write_index():
-    runs = []
-    for p in sorted((OUT / "runs").glob("r*.json")):
-        d = json.loads(p.read_text())
-        runs.append({"run_id": d["run_id"], "run_at": d["run_at"], "wall_s": d["wall_s"], **d["totals"]})
-    (OUT / "index.json").write_text(json.dumps({"runs": runs[::-1]}, indent=2) + "\n")
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_id", nargs="?")
@@ -340,7 +332,7 @@ def main():
         sys.exit(f"FAIL: no transcripts at {pdir}")
     found = find_subagents(pdir)
     ids = sorted(found) if args.all else [args.run_id]
-    (OUT / "runs").mkdir(parents=True, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
 
     ok = 0
     for rid in ids:
@@ -348,11 +340,10 @@ def main():
         if not doc:
             print(f"SKIP {rid}: no subagent transcripts found")
             continue
-        (OUT / "runs" / f"{rid}.json").write_text(json.dumps(doc, indent=2) + "\n")
+        (OUT / f"{rid}.json").write_text(json.dumps(doc, indent=2) + "\n")
         t = doc["totals"]
         print(f"OK {rid}: {len(doc['agents'])} agents, {t['tokens']:,} tokens, ${t['cost_usd']:.2f}, {doc['wall_s']:.0f}s")
         ok += 1
-    write_index()
     if not ok:
         sys.exit(1)
 

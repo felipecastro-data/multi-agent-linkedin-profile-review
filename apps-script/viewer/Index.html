@@ -327,7 +327,7 @@ details[open] .plus{transform:rotate(45deg);background:var(--surface-2)}
   function snap(list){return{docs:list.map(function(d){return{id:d.id,data:function(){return d.data}}})}}
   var subs={runs:[],checks:[]};
   async function refresh(name){
-    var raw=await call(name==="runs"?"listRuns":"listChecks");var list=JSON.parse(raw);
+    var raw=await call({runs:"listRuns",checks:"listChecks",stats:"listStats"}[name]);var list=JSON.parse(raw);
     subs[name].forEach(function(s){try{s.ok(snap(list))}catch(e){console.error(e)}});
   }
   function collection(name){
@@ -343,7 +343,7 @@ details[open] .plus{transform:rotate(45deg);background:var(--surface-2)}
   var db={collection:collection,doc:function(path){var p=path.split("/");return docRef(p[0],p[1])}};
   window.claude={use:async function(cap){if(cap==="db")return db;if(cap==="user")return{can:async function(){return true}};throw new Error("no "+cap)}};
   /* Pull fresh runs when the tab comes back into view (a new run may have landed). */
-  document.addEventListener("visibilitychange",function(){if(!document.hidden){refresh("runs").catch(function(){});refresh("checks").catch(function(){})}});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden){refresh("runs").catch(function(){});refresh("checks").catch(function(){});if(subs.stats)refresh("stats").catch(function(){})}});
 })();
 </script>
 
@@ -358,6 +358,7 @@ details[open] .plus{transform:rotate(45deg);background:var(--surface-2)}
 </div>
 <nav class="bottombar" id="bottombar" aria-label="Sections"></nav>
 <div class="toast" id="toast" hidden></div>
+<?!= include('Office') ?>
 
 <script>
 (function(){
@@ -366,6 +367,7 @@ const ICONS={
  career:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 16l5-5 4 3 6-7"/><path d="M15 7h5v5"/></svg>',
  profile:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2.5"/><path d="M5.5 16.5c.8-1.8 2-2.6 3.5-2.6s2.7.8 3.5 2.6M15 9h3M15 13h3"/></svg>',
  actions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 6h10M10 12h10M10 18h10"/></svg>',
+ office:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="2"/><circle cx="16" cy="5.5" r="2"/><path d="M4.5 12c.5-2 1.8-3 3.5-3s3 1 3.5 3M12.5 12c.5-2 1.8-3 3.5-3s3 1 3.5 3"/><path d="M3 13h18M6 13v7M18 13v7M9 17h6"/></svg>',
  sources:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h6M8 11h6"/></svg>',
  scrape:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
  compass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
@@ -373,8 +375,8 @@ const ICONS={
  merge:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v5a5 5 0 0 0 5 5h7M18 4v16M14 10l4 4-4 4"/></svg>'
 };
 const PLUS='<span class="plus"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 1v10M1 6h10"/></svg></span>';
-const TABS=[["overview","Overview"],["career","Career"],["profile","Profile"],["actions","Actions"],["sources","Sources"]];
-const S={runs:[],runId:null,tab:"overview",checks:{},db:null,canWrite:true,loaded:false,profiles:{}};
+const TABS=[["overview","Overview"],["office","Office"],["career","Career"],["profile","Profile"],["actions","Actions"],["sources","Sources"]];
+const S={runs:[],runId:null,tab:"overview",checks:{},db:null,canWrite:true,loaded:false,profiles:{},stats:null};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -679,6 +681,21 @@ function viewSources(r){
   ${notes.length?`<section class="glass card"><div class="sec-h"><h2>About this run</h2></div><ul class="since">${notes.map(n=>`<li><span class="muted" style="font-size:.88rem">${esc(n)}</span></li>`).join("")}</ul></section>`:""}</div>`;
 }
 
+/* ---------- office: 3D replay of the run's agents (Office.html) ---------- */
+function viewOffice(r){
+  loadStats();
+  return window.LROffice?LROffice.view({runId:r.run_id,stats:S.stats,dark:isDark(),onPickRun:id=>{
+    if(!S.runs.some(x=>x.run_id===id)){toast("That run isn't in the app");return}
+    S.runId=id;ls.set("lr.run",id);render();window.scrollTo({top:0})}}):`<div class="empty glass"><span class="eyebrow">Unavailable</span><h2>Office didn't load</h2></div>`;
+}
+function loadStats(){
+  if(S.stats!==null||loadStats._on||!S.db)return;loadStats._on=true;
+  S.db.collection("stats").limit(100).onSnapshot(snap=>{
+    S.stats=snap.docs.map(d=>d.data()).sort((a,b)=>String(b.run_at||"").localeCompare(String(a.run_at||"")));
+    if(S.tab==="office")render(true);
+  },()=>{S.stats=[];if(S.tab==="office")render(true)});
+}
+
 /* ---------- render ---------- */
 function render(soft){
   renderNav();
@@ -687,9 +704,11 @@ function render(soft){
   if(!S.db){main.innerHTML=`<div class="empty glass"><span class="eyebrow">Unavailable</span><h2>Open this page in Claude</h2><p class="muted">Your reviews are stored with this artifact. Open it in Claude to load them.</p></div>`;return}
   const r=run();
   if(!r){main.innerHTML=`<div class="empty glass"><span class="eyebrow">No reviews yet</span><h2>Run your first review</h2><p>In Claude Code, in the linkedin-multi-agent-review folder, type <code>/linkedin-review</code> with Chrome open and signed in to LinkedIn. The result appears here.</p></div>`;return}
-  const v={overview:viewOverview,career:viewCareer,profile:viewProfile,actions:viewActions,sources:viewSources}[S.tab]||viewOverview;
+  const v={overview:viewOverview,office:viewOffice,career:viewCareer,profile:viewProfile,actions:viewActions,sources:viewSources}[S.tab]||viewOverview;
   const y=window.scrollY;const open=[...document.querySelectorAll("details.item[open]")].map(d=>d.id||d.querySelector("h3")?.textContent);
+  if(window.LROffice&&S.tab!=="office")LROffice.detach();
   main.innerHTML=v(r);
+  if(window.LROffice&&S.tab==="office")LROffice.attach();
   if(soft){document.querySelectorAll(".enter").forEach(e=>e.classList.remove("enter"));document.querySelectorAll("details.item").forEach(d=>{d.open=open.includes(d.id||d.querySelector("h3")?.textContent)});window.scrollTo(0,y)}
   if(S.tab==="overview"){ensureProfile(r)}
   fitHero();motion();
@@ -745,7 +764,7 @@ function isDark(){const a=document.documentElement.getAttribute("data-theme");re
       ctx.fillStyle=`rgba(${cols[p.hue]},${(A*1.6).toFixed(3)})`;const h=tr[tr.length-1];ctx.fillRect(h[0]-p.w*.8,h[1]-p.w*.8,p.w*1.6,p.w*1.6)}
   }
   function frame(){if(!document.hidden){t+=16;const dy=scrollY-lastY;lastY=scrollY;step(dy);draw()}requestAnimationFrame(frame)}
-  size();addEventListener("resize",size);window.__retheme=(window.__retheme||[]);window.__retheme.push(()=>{col();if(!motionOK)draw()});
+  size();addEventListener("resize",size);window.__retheme=(window.__retheme||[]);window.__retheme.push(()=>{col();if(!motionOK)draw()});window.__retheme.push(()=>{if(window.LROffice)LROffice.setTheme(isDark())});
   if(motionOK)requestAnimationFrame(frame);else{for(let i=0;i<TL;i++){t+=16;step(0)}draw()}
 })();
 
