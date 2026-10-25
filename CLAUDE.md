@@ -52,8 +52,6 @@ RUN_ID = `r<YYYYMMDD>-<HHMM>` in America/Bogota time (`scripts/new_run.py`).
   update it when an agent's scope changes.
 - `python3 scripts/preview_viewer.py` + the `viewer-preview` launch entry
   previews the app locally with data from `data/` (output stays in `data/`).
-- `dashboard/` + `.github/workflows/pages.yml` are the old GitHub Pages copy,
-  frozen (no new stats) and due for removal; don't edit them.
 
 ## Apps Script
 - `apps-script/viewer/` — `Code.gs` (Drive reads, checklist ticks),
