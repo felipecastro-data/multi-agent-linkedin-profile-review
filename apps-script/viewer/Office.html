@@ -518,7 +518,10 @@ function loadScene() {
 
     // ---- office ----
     const R = 5;          // half the room size
-    const HALL = 1.5;     // hallway width, behind wall A
+    const WA = -3.9;      // wall A: the office's left wall, with the hallway behind it
+    const OUT = -5.9;     // the hallway's outer wall
+    const KX = 0, KZ = -2.5;          // kitchenette: left wall x, front wall z
+    const KO0 = 1.8, KO1 = 3.4;       // kitchenette opening in the front wall
     const FY = 0.1;       // floor surface height
     const H = 3.3;        // wall height
     const C = { x: 0, z: 0.85 }; // centre of the four-desk pod
@@ -543,9 +546,9 @@ function loadScene() {
     const RING = [V2(-3, -2.0), V2(0, -2.0), V2(2.75, -1.9), V2(3, C.z), V2(3, C.z + 3), V2(0, C.z + 3), V2(-3, C.z + 3), V2(-3, C.z)];
     const KITCHEN_DOOR = 2; // ring index just outside the kitchenette opening
     const DOOR_IN = V2(2.7, -2.95); // just inside the opening
-    const KITCHEN_CENTER = V2(2.95, -3.65);
-    const KITCHEN_SPOTS = { scraper: V2(2.35, -3.4), recruiter: V2(2.45, -3.95), 'career-coach': V2(3.55, -3.4), synthesis: V2(3.5, -3.95) };
-    const inKitchen = (p) => p.x > 1.9 && p.y < -2.45;
+    const KITCHEN_CENTER = V2(2.0, -3.8);
+    const KITCHEN_SPOTS = { scraper: V2(1.4, -3.3), recruiter: V2(2.45, -3.95), 'career-coach': V2(3.55, -3.4), synthesis: V2(0.75, -2.95) };
+    const inKitchen = (p) => p.x > KX + 0.1 && p.y < KZ - 0.05;
     const BREAK_S = 2.5; // seconds a finished agent spends with its coffee
     const HOME = V2(-3.2, 4.15);
 
@@ -686,9 +689,9 @@ function loadScene() {
       scene.add(world);
 
       // ---- room shell -------------------------------------------------------------
-      world.add(rbox(2 * R + HALL + 0.5, 0.55, 2 * R + 0.5, 0.12, M.slab, -HALL / 2, -0.27, 0));
-      world.add(rbox(2 * R + 0.02, 0.14, 2 * R + 0.02, 0.05, M.floor, 0, FY - 0.07, 0));
-      world.add(rbox(HALL - 0.02, 0.12, 2 * R + 0.02, 0.04, M.hall, -R - HALL / 2 - 0.01, FY - 0.07, 0));
+      world.add(rbox(R - OUT + 0.5, 0.55, 2 * R + 0.5, 0.12, M.slab, (OUT + R) / 2, -0.27, 0));
+      world.add(rbox(R - WA + 0.02, 0.14, 2 * R + 0.02, 0.05, M.floor, (WA + R) / 2, FY - 0.07, 0));
+      world.add(rbox(WA - OUT - 0.02, 0.12, 2 * R + 0.02, 0.04, M.hall, (OUT + WA) / 2 - 0.01, FY - 0.07, 0));
 
       function wallAlongZ(x, z0, z1, thick = 0.26) {
         const len = z1 - z0, zc = (z0 + z1) / 2;
@@ -708,44 +711,46 @@ function loadScene() {
       }
       // wall A has an open doorway onto the hallway that runs behind it
       const DZ0 = 2.95, DZ1 = 4.05, DOOR_H = 2.3;
-      world.add(wallAlongZ(-R, -R - 0.13, DZ0));
-      world.add(wallAlongZ(-R, DZ1, R));
-      world.add(rbox(0.26, H - DOOR_H, DZ1 - DZ0 + 0.02, 0.03, M.wall, -R, FY + DOOR_H + (H - DOOR_H) / 2, (DZ0 + DZ1) / 2));
-      world.add(rbox(0.38, 0.14, DZ1 - DZ0 + 0.1, 0.05, M.trim, -R, FY + H + 0.05, (DZ0 + DZ1) / 2));
-      world.add(wallAlongX(-R, -R - HALL - 0.13, R + 0.13));
-      world.add(wallAlongZ(-R - HALL, -R - 0.13, R));
+      world.add(wallAlongZ(WA, -R - 0.13, DZ0));
+      world.add(wallAlongZ(WA, DZ1, R));
+      world.add(rbox(0.26, H - DOOR_H, DZ1 - DZ0 + 0.02, 0.03, M.wall, WA, FY + DOOR_H + (H - DOOR_H) / 2, (DZ0 + DZ1) / 2));
+      world.add(rbox(0.38, 0.14, DZ1 - DZ0 + 0.1, 0.05, M.trim, WA, FY + H + 0.05, (DZ0 + DZ1) / 2));
+      world.add(wallAlongX(-R, OUT - 0.13, R + 0.13));
+      world.add(wallAlongZ(OUT, -R - 0.13, R));
       for (let i = 0; i < 5; i++) {
-        if (i < 4) world.add(rbox(0.02, H - 0.35, 0.03, 0.01, M.seam, -R + 0.14, FY + H / 2, -3.6 + i * 1.75));
-        world.add(rbox(0.02, H - 0.35, 0.03, 0.01, M.seam, -R - HALL + 0.14, FY + H / 2, -3.6 + i * 1.75));
-        if (i < 3) world.add(rbox(0.03, H - 0.35, 0.02, 0.01, M.seam, -3.6 + i * 1.75, FY + H / 2, -R + 0.14));
+        if (i < 4) world.add(rbox(0.02, H - 0.35, 0.03, 0.01, M.seam, WA + 0.14, FY + H / 2, -3.6 + i * 1.75));
+        world.add(rbox(0.02, H - 0.35, 0.03, 0.01, M.seam, OUT + 0.14, FY + H / 2, -3.6 + i * 1.75));
       }
+      for (const x of [WA + 1.3, WA + 2.95]) world.add(rbox(0.03, H - 0.35, 0.02, 0.01, M.seam, x, FY + H / 2, -R + 0.14));
 
-      // door frame (through the wall) and the door, swung open into the hallway
+      // open doorway: just the frame through the wall, no door leaf
       const frameMat = std(0xd9e0e3, 0.5);
-      for (const z of [DZ0 - 0.035, DZ1 + 0.035]) world.add(rbox(0.36, DOOR_H + 0.04, 0.07, 0.02, frameMat, -R, FY + DOOR_H / 2, z));
-      world.add(rbox(0.36, 0.07, DZ1 - DZ0 + 0.14, 0.02, frameMat, -R, FY + DOOR_H + 0.02, (DZ0 + DZ1) / 2));
-      const door = new THREE.Group();
-      // hinged on the front jamb and swung wide, so it stays out of the sightline into the hallway
-      const DW = DZ1 - DZ0 - 0.04;
-      door.position.set(-R - 0.15, FY, DZ1 - 0.02);
-      door.rotation.y = 2.3;
-      door.add(rbox(0.05, DOOR_H - 0.04, DW, 0.02, M.white, 0, (DOOR_H - 0.04) / 2, -DW / 2));
-      door.add(rbox(0.012, 0.6, 0.62, 0.01, M.plastic, 0.03, 1.55, -DW / 2), rbox(0.012, 0.6, 0.62, 0.01, M.plastic, -0.03, 1.55, -DW / 2));
-      for (const sx of [1, -1]) {
-        door.add(rbox(0.03, 0.18, 0.06, 0.012, M.trim, sx * 0.035, 1.02, -DW + 0.12));
-        door.add(rbox(0.06, 0.03, 0.14, 0.012, M.steel, sx * 0.06, 1.05, -DW + 0.16));
-      }
-      world.add(door);
+      for (const z of [DZ0 - 0.035, DZ1 + 0.035]) world.add(rbox(0.36, DOOR_H + 0.04, 0.07, 0.02, frameMat, WA, FY + DOOR_H / 2, z));
+      world.add(rbox(0.36, 0.07, DZ1 - DZ0 + 0.14, 0.02, frameMat, WA, FY + DOOR_H + 0.02, (DZ0 + DZ1) / 2));
+
+      // the hallway ends in a closed door with an exit sign
+      const endDoor = new THREE.Group();
+      endDoor.position.set((OUT + WA) / 2, FY, -R + 0.13);
+      const EW = 1.2;
+      for (const x of [-EW / 2 - 0.04, EW / 2 + 0.04]) endDoor.add(rbox(0.08, DOOR_H + 0.06, 0.08, 0.02, frameMat, x, (DOOR_H + 0.06) / 2, 0.03));
+      endDoor.add(rbox(EW + 0.16, 0.08, 0.08, 0.02, frameMat, 0, DOOR_H + 0.04, 0.03));
+      endDoor.add(rbox(EW, DOOR_H - 0.02, 0.05, 0.02, M.white, 0, (DOOR_H - 0.02) / 2, 0.02));
+      endDoor.add(rbox(0.012, DOOR_H - 0.06, 0.012, 0.004, M.seam, 0, (DOOR_H - 0.02) / 2, 0.05)); // double door
+      for (const x of [-EW / 4, EW / 4]) endDoor.add(rbox(0.36, 0.7, 0.012, 0.01, M.plastic, x, 1.6, 0.05));
+      endDoor.add(rbox(EW - 0.3, 0.05, 0.06, 0.02, M.steel, 0, 1.0, 0.08)); // push bar
+      endDoor.add(rbox(0.46, 0.16, 0.05, 0.02, std(0x1f9d55, 0.4, { emissive: 0x1f9d55, emissiveIntensity: 0.6 }), 0, DOOR_H + 0.32, 0.03));
+      endDoor.add(rbox(0.3, 0.05, 0.01, 0.01, new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, DOOR_H + 0.32, 0.06));
+      world.add(endDoor);
       // light switch and access-card reader beside the doorway
-      world.add(rbox(0.03, 0.2, 0.13, 0.015, M.white, -R + 0.145, FY + 1.15, DZ0 - 0.4));
-      world.add(rbox(0.02, 0.07, 0.04, 0.01, M.plastic, -R + 0.165, FY + 1.17, DZ0 - 0.4));
-      world.add(rbox(0.04, 0.16, 0.1, 0.02, M.dark, -R + 0.15, FY + 1.25, DZ1 + 0.35));
-      const readerLed = sphere(0.012, new THREE.MeshBasicMaterial({ color: 0x40e070 }), -R + 0.175, FY + 1.3, DZ1 + 0.35);
+      world.add(rbox(0.03, 0.2, 0.13, 0.015, M.white, WA + 0.145, FY + 1.15, DZ0 - 0.4));
+      world.add(rbox(0.02, 0.07, 0.04, 0.01, M.plastic, WA + 0.165, FY + 1.17, DZ0 - 0.4));
+      world.add(rbox(0.04, 0.16, 0.1, 0.02, M.dark, WA + 0.15, FY + 1.25, DZ1 + 0.35));
+      const readerLed = sphere(0.012, new THREE.MeshBasicMaterial({ color: 0x40e070 }), WA + 0.175, FY + 1.3, DZ1 + 0.35);
       world.add(readerLed);
 
       // hallway: a water cooler in view through the doorway, a bench under a framed print
       const art = new THREE.Group();
-      art.position.set(-R - HALL + 0.16, FY + 1.5, -1.6);
+      art.position.set(OUT + 0.16, FY + 1.5, -1.6);
       art.add(rbox(0.04, 0.82, 1.06, 0.015, M.trim));
       art.add(rbox(0.02, 0.7, 0.94, 0.01, M.white, 0.015));
       art.add(rbox(0.02, 0.36, 0.36, 0.01, M.divider, 0.03, 0.06, -0.2), rbox(0.02, 0.2, 0.42, 0.01, M.blue, 0.035, -0.12, 0.18));
@@ -754,7 +759,7 @@ function loadScene() {
       art.add(sun2);
       world.add(art);
       const cooler = new THREE.Group();
-      cooler.position.set(-R - HALL + 0.36, FY, DZ0 - 0.75);
+      cooler.position.set(OUT + 0.36, FY, DZ0 - 0.75);
       cooler.add(rbox(0.38, 0.95, 0.36, 0.05, M.white, 0, 0.475, 0));
       cooler.add(rbox(0.2, 0.12, 0.02, 0.01, M.dark, 0.0, 0.7, 0.18));
       cooler.add(cyl(0.012, 0.012, 0.05, M.blue, -0.05, 0.66, 0.2), cyl(0.012, 0.012, 0.05, std(0xd23c3c, 0.3), 0.05, 0.66, 0.2));
@@ -762,24 +767,24 @@ function loadScene() {
       cooler.add(cyl(0.06, 0.15, 0.08, std(0x8fc4ee, 0.08, { transparent: true, opacity: 0.6 }), 0, 0.99, 0));
       world.add(cooler);
       const bench = new THREE.Group();
-      bench.position.set(-R - HALL + 0.32, FY, -1.6);
+      bench.position.set(OUT + 0.32, FY, -1.6);
       bench.add(rbox(0.42, 0.08, 1.5, 0.03, M.white, 0, 0.44, 0));
       for (const z of [-0.6, 0.6]) bench.add(rbox(0.36, 0.4, 0.06, 0.02, M.trim, 0, 0.2, z));
       bench.add(rbox(0.36, 0.22, 0.3, 0.06, M.chair, 0, 0.59, -0.35));
       world.add(bench);
       // ceiling-height wall lights in the hallway
       for (const z of [-3, 0.3, 3.5]) {
-        world.add(rbox(0.1, 0.12, 0.34, 0.04, std(0xfff4dc, 0.4, { emissive: 0xfff1d0, emissiveIntensity: 0.5 }), -R - HALL + 0.18, FY + 2.75, z));
+        world.add(rbox(0.1, 0.12, 0.34, 0.04, std(0xfff4dc, 0.4, { emissive: 0xfff1d0, emissiveIntensity: 0.5 }), OUT + 0.18, FY + 2.75, z));
       }
 
       // mail trays on wall A
       for (let i = 0; i < 2; i++) {
-        world.add(rbox(0.16, 0.3, 0.46, 0.04, M.trim, -R + 0.2, FY + 1.9 - i * 0.42, -0.9));
-        world.add(rbox(0.06, 0.2, 0.36, 0.02, i ? M.white : M.blue, -R + 0.24, FY + 1.95 - i * 0.42, -0.9));
+        world.add(rbox(0.16, 0.3, 0.46, 0.04, M.trim, WA + 0.2, FY + 1.9 - i * 0.42, -0.9));
+        world.add(rbox(0.06, 0.2, 0.36, 0.02, i ? M.white : M.blue, WA + 0.24, FY + 1.95 - i * 0.42, -0.9));
       }
       // security dome on wall A
       const camHead = new THREE.Group();
-      camHead.position.set(-R + 0.3, FY + 2.8, -3.4);
+      camHead.position.set(WA + 0.3, FY + 2.8, -3.4);
       camHead.add(rbox(0.18, 0.06, 0.18, 0.03, M.white, -0.06, 0.12, 0));
       const dome = new THREE.Mesh(new THREE.SphereGeometry(0.15, 28, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M.white);
       dome.position.y = 0.1;
@@ -795,7 +800,7 @@ function loadScene() {
       wallTex.colorSpace = THREE.SRGBColorSpace;
       wallTex.anisotropy = 8;
       const wallScreen = new THREE.Group();
-      wallScreen.position.set(-2.3, FY + 2.0, -R + 0.18);
+      wallScreen.position.set(-1.75, FY + 2.0, -R + 0.18);
       wallScreen.add(rbox(3.0, 1.66, 0.08, 0.04, M.dark));
       const wallFace = new THREE.Mesh(new THREE.PlaneGeometry(2.86, 1.52), new THREE.MeshBasicMaterial({ map: wallTex, toneMapped: false }));
       wallFace.position.z = 0.045;
@@ -816,21 +821,32 @@ function loadScene() {
       }
       drawWall();
 
-      // kitchenette alcove (back-right corner)
-      const KX = 1.8, KZ = -2.4;
+      // kitchenette (back-right): counters along the back wall, a café table by the left wall
       world.add(wallAlongZ(KX, -R, KZ + 0.09, 0.18));
-      world.add(wallAlongX(KZ, 3.4, R + 0.13, 0.18));
-      world.add(rbox(1.68, 0.5, 0.18, 0.03, M.wall, (KX + 3.4) / 2 + 0.04, FY + H - 0.25, KZ));
+      world.add(wallAlongX(KZ, KX - 0.09, KO0, 0.18));
+      world.add(wallAlongX(KZ, KO1, R + 0.13, 0.18));
+      world.add(rbox(KO1 - KO0 + 0.08, 0.5, 0.18, 0.03, M.wall, (KO0 + KO1) / 2, FY + H - 0.25, KZ));
       world.add(rbox(R - KX - 0.1, 0.02, KZ + R - 0.1, 0.01, M.kitchen, (KX + R) / 2, FY + 0.012, (KZ - R) / 2));
       const kitchen = new THREE.Group();
-      kitchen.add(rbox(1.95, 0.86, 0.6, 0.03, M.white, 2.93, FY + 0.43, -R + 0.45));
-      kitchen.add(rbox(2.02, 0.05, 0.66, 0.02, std(0xd3d9de, 0.3), 2.93, FY + 0.885, -R + 0.47));
-      for (let i = 0; i < 3; i++) {
-        kitchen.add(rbox(0.6, 0.74, 0.02, 0.01, M.plastic, 2.28 + i * 0.65, FY + 0.43, -R + 0.76));
-        kitchen.add(rbox(0.14, 0.02, 0.02, 0.008, M.steel, 2.28 + i * 0.65, FY + 0.72, -R + 0.78));
+      const top = std(0xd3d9de, 0.3);
+      kitchen.add(rbox(3.25, 0.86, 0.6, 0.03, M.white, 2.28, FY + 0.43, -R + 0.45));
+      kitchen.add(rbox(3.32, 0.05, 0.66, 0.02, top, 2.28, FY + 0.885, -R + 0.47));
+      kitchen.add(rbox(3.25, 0.7, 0.36, 0.03, M.white, 2.28, FY + 2.15, -R + 0.33));
+      for (let i = 0; i < 5; i++) {
+        const x = 0.98 + i * 0.65;
+        kitchen.add(rbox(0.6, 0.74, 0.02, 0.01, M.plastic, x, FY + 0.43, -R + 0.76));
+        kitchen.add(rbox(0.14, 0.02, 0.02, 0.008, M.steel, x, FY + 0.72, -R + 0.78));
+        kitchen.add(rbox(0.6, 0.62, 0.02, 0.01, M.plastic, x, FY + 2.15, -R + 0.52));
       }
-      kitchen.add(rbox(1.95, 0.7, 0.36, 0.03, M.white, 2.93, FY + 2.15, -R + 0.33));
-      for (let i = 0; i < 3; i++) kitchen.add(rbox(0.6, 0.62, 0.02, 0.01, M.plastic, 2.28 + i * 0.65, FY + 2.15, -R + 0.52));
+      // sink and tap
+      kitchen.add(rbox(0.5, 0.03, 0.36, 0.02, M.steel, 1.3, FY + 0.9, -R + 0.47));
+      kitchen.add(tube([[1.3, FY + 0.9, -R + 0.24], [1.3, FY + 1.18, -R + 0.24], [1.3, FY + 1.2, -R + 0.36], [1.3, FY + 1.1, -R + 0.42]], 0.018, M.steel));
+      // café table with two stools
+      kitchen.add(cyl(0.42, 0.42, 0.04, M.white, 0.8, FY + 0.76, -3.75, 40), cyl(0.05, 0.05, 0.72, M.steel, 0.8, FY + 0.38, -3.75), cyl(0.24, 0.26, 0.03, M.steel, 0.8, FY + 0.015, -3.75));
+      for (const [x, z] of [[0.35, -4.2], [1.3, -4.25]]) {
+        kitchen.add(cyl(0.17, 0.17, 0.06, M.chair, x, FY + 0.5, z, 28), cyl(0.03, 0.03, 0.47, M.steel, x, FY + 0.24, z), cyl(0.15, 0.17, 0.02, M.steel, x, FY + 0.01, z));
+      }
+      kitchen.add(cyl(0.035, 0.035, 0.1, M.blue, 0.68, FY + 0.83, -3.62), cyl(0.035, 0.035, 0.1, M.white, 0.95, FY + 0.83, -3.88));
       kitchen.add(rbox(0.52, 0.3, 0.38, 0.04, M.white, 2.45, FY + 1.06, -R + 0.42), rbox(0.32, 0.2, 0.01, 0.01, M.dark, 2.38, FY + 1.06, -R + 0.615));
       const mwLed = sphere(0.016, new THREE.MeshBasicMaterial({ color: 0x40e070 }), 2.63, FY + 1.12, -R + 0.62);
       kitchen.add(mwLed);
@@ -840,6 +856,11 @@ function loadScene() {
       kitchen.add(rbox(0.72, 0.012, 0.02, 0.004, M.seam, 4.42, FY + 1.35, -R + 0.82));
       kitchen.add(rbox(0.03, 0.4, 0.04, 0.015, M.steel, 4.12, FY + 1.6, -R + 0.84), rbox(0.03, 0.5, 0.04, 0.015, M.steel, 4.12, FY + 0.9, -R + 0.84));
       world.add(kitchen);
+
+      // café menu board on the kitchenette's front wall, left of the opening
+      world.add(rbox(1.0, 0.7, 0.04, 0.02, M.trim, (KX + KO0) / 2, FY + 1.75, KZ + 0.11));
+      world.add(rbox(0.9, 0.6, 0.02, 0.01, std(0x2c3a33, 0.8), (KX + KO0) / 2, FY + 1.75, KZ + 0.13));
+      for (let i = 0; i < 4; i++) world.add(rbox(i ? 0.5 - i * 0.06 : 0.36, 0.035, 0.01, 0.005, M.white, (KX + KO0) / 2 - 0.12 + (i ? 0.04 : 0.05), FY + 1.92 - i * 0.12 - (i ? 0.04 : 0), KZ + 0.145));
 
       // clock on the alcove's front wall (faces +z)
       const clock = new THREE.Group();
@@ -865,7 +886,7 @@ function loadScene() {
 
       // plant in the back corner
       const plant = new THREE.Group();
-      plant.position.set(-R + 0.65, FY, -R + 0.65);
+      plant.position.set(WA + 0.65, FY, -R + 0.65);
       plant.add(cyl(0.24, 0.19, 0.5, M.white, 0, 0.25, 0));
       plant.add(cyl(0.21, 0.21, 0.04, std(0x4a3a2c, 0.9), 0, 0.49, 0));
       for (let i = 0; i < 11; i++) {
@@ -1198,7 +1219,7 @@ function loadScene() {
       // centred on screen. Binary-search the distance, then re-centre the target on the
       // projected box; two passes are enough.
       const FIT_BOX = [];
-      for (const x of [-R - HALL - 0.25, R + 0.25]) for (const y of [-0.55, FY + H + 0.15]) for (const z of [-R - 0.25, R + 0.25]) FIT_BOX.push(new THREE.Vector3(x, y, z));
+      for (const x of [OUT - 0.25, R + 0.25]) for (const y of [-0.55, FY + H + 0.15]) for (const z of [-R - 0.25, R + 0.25]) FIT_BOX.push(new THREE.Vector3(x, y, z));
       const fitCam = new THREE.PerspectiveCamera(camera.fov, 1, 0.5, 200), fitV = new THREE.Vector3();
       function projected(target, dist) {
         fitCam.position.copy(target).addScaledVector(homeDir(fitCam.aspect), dist);
@@ -1217,7 +1238,7 @@ function loadScene() {
         fitCam.updateProjectionMatrix();
         // portrait leaves room above and below; landscape is height-bound and has the title on top
         const mx = aspect < 1 ? 0.97 : 0.9, my = aspect < 1 ? 0.8 : 0.86;
-        const target = new THREE.Vector3(-HALL / 2, 0.9, 0);
+        const target = new THREE.Vector3((OUT + R) / 2, 0.9, 0);
         let dist = 22;
         for (let pass = 0; pass < 2; pass++) {
           let lo = 6, hi = 90;
