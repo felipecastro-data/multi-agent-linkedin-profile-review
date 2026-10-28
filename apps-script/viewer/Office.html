@@ -547,7 +547,7 @@ function loadScene() {
     const KITCHEN_DOOR = 2; // ring index just outside the kitchenette opening
     const DOOR_IN = V2(2.7, -2.95); // just inside the opening
     const KITCHEN_CENTER = V2(2.0, -3.8);
-    const KITCHEN_SPOTS = { scraper: V2(1.4, -3.3), recruiter: V2(2.45, -3.95), 'career-coach': V2(3.55, -3.4), synthesis: V2(0.75, -2.95) };
+    const KITCHEN_SPOTS = { scraper: V2(1.75, -3.2), recruiter: V2(2.45, -3.95), 'career-coach': V2(3.55, -3.4), synthesis: V2(0.75, -2.95) };
     const inKitchen = (p) => p.x > KX + 0.1 && p.y < KZ - 0.05;
     const BREAK_S = 2.5; // seconds a finished agent spends with its coffee
     const HOME = V2(-3.2, 4.15);
@@ -841,12 +841,28 @@ function loadScene() {
       // sink and tap
       kitchen.add(rbox(0.5, 0.03, 0.36, 0.02, M.steel, 1.3, FY + 0.9, -R + 0.47));
       kitchen.add(tube([[1.3, FY + 0.9, -R + 0.24], [1.3, FY + 1.18, -R + 0.24], [1.3, FY + 1.2, -R + 0.36], [1.3, FY + 1.1, -R + 0.42]], 0.018, M.steel));
-      // café table with two stools
-      kitchen.add(cyl(0.42, 0.42, 0.04, M.white, 0.8, FY + 0.76, -3.75, 40), cyl(0.05, 0.05, 0.72, M.steel, 0.8, FY + 0.38, -3.75), cyl(0.24, 0.26, 0.03, M.steel, 0.8, FY + 0.015, -3.75));
-      for (const [x, z] of [[0.35, -4.2], [1.3, -4.25]]) {
-        kitchen.add(cyl(0.17, 0.17, 0.06, M.chair, x, FY + 0.5, z, 28), cyl(0.03, 0.03, 0.47, M.steel, x, FY + 0.24, z), cyl(0.15, 0.17, 0.02, M.steel, x, FY + 0.01, z));
+      // café table with two wooden chairs facing each other across it
+      kitchen.add(cyl(0.38, 0.38, 0.045, M.white, 0.85, FY + 0.76, -3.7, 40), cyl(0.385, 0.385, 0.02, M.trim, 0.85, FY + 0.735, -3.7, 40));
+      kitchen.add(cyl(0.045, 0.045, 0.72, M.dark, 0.85, FY + 0.38, -3.7), cyl(0.22, 0.25, 0.03, M.dark, 0.85, FY + 0.015, -3.7));
+      const wood = std(0xb07a4a, 0.55);
+      function cafeChair(x, z, yaw) {
+        // faces +z before the yaw: back rail at -z
+        const g = new THREE.Group();
+        g.position.set(x, FY, z);
+        g.rotation.y = yaw;
+        g.add(rbox(0.42, 0.05, 0.4, 0.02, wood, 0, 0.46, 0));
+        for (const [lx, lz] of [[-0.17, -0.16], [0.17, -0.16], [-0.17, 0.16], [0.17, 0.16]]) {
+          const leg = cyl(0.016, 0.014, 0.45, M.dark, lx * 1.06, 0.22, lz * 1.06, 12);
+          leg.rotation.set(lz * 0.25, 0, -lx * 0.25);
+          g.add(leg);
+        }
+        g.add(tube([[-0.17, 0.12, -0.16], [-0.17, 0.12, 0.16]], 0.008, M.dark), tube([[0.17, 0.12, -0.16], [0.17, 0.12, 0.16]], 0.008, M.dark));
+        for (const s of [-1, 1]) g.add(cyl(0.015, 0.015, 0.42, M.dark, s * 0.17, 0.69, -0.18, 12));
+        g.add(rbox(0.42, 0.14, 0.035, 0.015, wood, 0, 0.84, -0.19), rbox(0.36, 0.035, 0.025, 0.01, wood, 0, 0.66, -0.185));
+        return g;
       }
-      kitchen.add(cyl(0.035, 0.035, 0.1, M.blue, 0.68, FY + 0.83, -3.62), cyl(0.035, 0.035, 0.1, M.white, 0.95, FY + 0.83, -3.88));
+      kitchen.add(cafeChair(0.33, -3.7, Math.PI / 2 + 0.12), cafeChair(1.38, -3.72, -Math.PI / 2 - 0.1));
+      kitchen.add(cyl(0.035, 0.035, 0.1, M.blue, 0.72, FY + 0.83, -3.6), cyl(0.035, 0.035, 0.1, M.white, 0.98, FY + 0.83, -3.82));
       kitchen.add(rbox(0.52, 0.3, 0.38, 0.04, M.white, 2.45, FY + 1.06, -R + 0.42), rbox(0.32, 0.2, 0.01, 0.01, M.dark, 2.38, FY + 1.06, -R + 0.615));
       const mwLed = sphere(0.016, new THREE.MeshBasicMaterial({ color: 0x40e070 }), 2.63, FY + 1.12, -R + 0.62);
       kitchen.add(mwLed);
@@ -857,10 +873,19 @@ function loadScene() {
       kitchen.add(rbox(0.03, 0.4, 0.04, 0.015, M.steel, 4.12, FY + 1.6, -R + 0.84), rbox(0.03, 0.5, 0.04, 0.015, M.steel, 4.12, FY + 0.9, -R + 0.84));
       world.add(kitchen);
 
-      // café menu board on the kitchenette's front wall, left of the opening
-      world.add(rbox(1.0, 0.7, 0.04, 0.02, M.trim, (KX + KO0) / 2, FY + 1.75, KZ + 0.11));
-      world.add(rbox(0.9, 0.6, 0.02, 0.01, std(0x2c3a33, 0.8), (KX + KO0) / 2, FY + 1.75, KZ + 0.13));
-      for (let i = 0; i < 4; i++) world.add(rbox(i ? 0.5 - i * 0.06 : 0.36, 0.035, 0.01, 0.005, M.white, (KX + KO0) / 2 - 0.12 + (i ? 0.04 : 0.05), FY + 1.92 - i * 0.12 - (i ? 0.04 : 0), KZ + 0.145));
+      // "Break room" chalkboard on the kitchenette's front wall, left of the opening:
+      // who is working, on a coffee break or back at their desk (drawn by drawBoard)
+      const boardCv = document.createElement('canvas');
+      boardCv.width = 760; boardCv.height = 512;
+      const boardTex = new THREE.CanvasTexture(boardCv);
+      boardTex.colorSpace = THREE.SRGBColorSpace;
+      boardTex.anisotropy = 8;
+      world.add(rbox(1.42, 1.0, 0.05, 0.02, wood, (KX + KO0) / 2, FY + 1.75, KZ + 0.11));
+      const boardFace = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 0.86), new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.95, emissive: 0xffffff, emissiveMap: boardTex, emissiveIntensity: 0.12 }));
+      boardFace.position.set((KX + KO0) / 2, FY + 1.75, KZ + 0.14);
+      world.add(boardFace);
+      world.add(rbox(1.0, 0.03, 0.06, 0.01, wood, (KX + KO0) / 2, FY + 1.23, KZ + 0.15));
+      world.add(rbox(0.1, 0.025, 0.025, 0.008, M.white, (KX + KO0) / 2 - 0.3, FY + 1.26, KZ + 0.16), rbox(0.07, 0.025, 0.025, 0.008, std(0xf2c94c), (KX + KO0) / 2 - 0.15, FY + 1.26, KZ + 0.16));
 
       // clock on the alcove's front wall (faces +z)
       const clock = new THREE.Group();
@@ -1344,6 +1369,58 @@ function loadScene() {
         c.fillText('AGENT OFFICE', 0, 2);
         c.restore();
       }
+      // ---- break room board: one line per agent, redrawn only when something changes ----
+      let coffees = 0, boardKey = '';
+      const CHALK = '"Chalkboard SE", "Segoe Print", "Comic Sans MS", cursive';
+      const TYPISTS = ['scraper', 'recruiter', 'career-coach', 'synthesis'];
+      function boardStatus(st) {
+        if (st.mode === 'out') return ['☕ coffee run', '#f2c94c'];
+        if (st.mode === 'break') return ['☕ break', '#f2c94c'];
+        if (st.mode === 'back') return ['back to desk', '#cfd8dc'];
+        if (st.state === 'working') return ['working', '#9be7a8'];
+        if (st.state === 'done') return ['done ✓', '#9be7a8'];
+        return ['waiting', '#cfd8dc'];
+      }
+      function drawBoard() {
+        // a new replay starts with everyone waiting: wipe the coffee tally
+        if (TYPISTS.every((id) => stations[id].state === 'waiting' && stations[id].mode === 'seated')) coffees = 0;
+        const rows = TYPISTS.map((id) => boardStatus(stations[id]));
+        const atDesk = TYPISTS.filter((id) => stations[id].mode === 'seated').length;
+        const key = rows.map((r) => r[0]).join('|') + coffees + atDesk;
+        if (key === boardKey) return;
+        boardKey = key;
+        const c = boardCv.getContext('2d'), w = boardCv.width, h = boardCv.height;
+        const g = c.createRadialGradient(w * 0.45, h * 0.4, 40, w / 2, h / 2, w * 0.7);
+        g.addColorStop(0, '#34493f'); g.addColorStop(1, '#25362e');
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        c.fillStyle = 'rgba(255,255,255,0.05)'; // old chalk smudges
+        for (const [x, y, r] of [[120, 420, 90], [560, 120, 70], [640, 400, 60]]) { c.beginPath(); c.ellipse(x, y, r * 1.6, r * 0.5, -0.2, 0, Math.PI * 2); c.fill(); }
+        c.textBaseline = 'middle';
+        c.fillStyle = '#f4f1e8'; c.font = `700 62px ${CHALK}`;
+        c.fillText('Break room', 36, 56);
+        c.strokeStyle = 'rgba(244,241,232,0.7)'; c.lineWidth = 3;
+        c.beginPath(); c.moveTo(36, 100); c.lineTo(400, 96); c.stroke();
+        c.font = `46px ${CHALK}`;
+        TYPISTS.forEach((id, i) => {
+          const y = 150 + i * 66;
+          c.fillStyle = META.agents[id].color;
+          c.beginPath(); c.arc(50, y, 14, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#f4f1e8'; c.textAlign = 'left';
+          c.fillText(META.agents[id].name, 76, y);
+          c.fillStyle = rows[i][1]; c.textAlign = 'right';
+          c.fillText(rows[i][0], w - 30, y);
+        });
+        c.textAlign = 'left';
+        c.strokeStyle = 'rgba(244,241,232,0.35)'; c.setLineDash([10, 10]);
+        c.beginPath(); c.moveTo(36, 408); c.lineTo(w - 30, 408); c.stroke(); c.setLineDash([]);
+        c.fillStyle = '#f4f1e8'; c.font = `42px ${CHALK}`;
+        c.fillText(`☕ × ${coffees}`, 36, 460);
+        c.textAlign = 'right';
+        c.fillText(`at desks ${atDesk}/4`, w - 30, 460);
+        c.textAlign = 'left';
+        boardTex.needsUpdate = true;
+      }
+
       function drawScreens(t) {
         for (const s of screens) {
           const c = s.cv.getContext('2d');
@@ -1462,6 +1539,7 @@ function loadScene() {
         if (st.mode === 'seated' && st.doneFor > 1.0 && !st.hadBreak) {
           st.mode = 'out';
           st.hadBreak = true;
+          coffees++;
           st.breakLeft = BREAK_S + Math.random() * 1.5;
           st.path = [st.exit.clone(), ...route(st.exit, DOOR_IN, undefined, KITCHEN_DOOR), st.kitchen.clone()];
           st.cruise = 1.2;
@@ -1657,7 +1735,7 @@ function loadScene() {
         flights.slice(0, docs.length).forEach((f, i) => placeDoc(docs[i], f.from, f.to, f.p, agents[f.from].color));
 
         screenClock += dt; clockT += dt;
-        if (screenClock > 1 / 12) { screenClock = 0; drawScreens(clockT); }
+        if (screenClock > 1 / 12) { screenClock = 0; drawScreens(clockT); drawBoard(); }
 
         if (composer) composer.render(dt);
         else renderer.render(scene, camera);
