@@ -32,6 +32,7 @@ export async function onRequestPost({ request, env, params }) {
     const result = await fn(env, ...(Array.isArray(args) ? args : []));
     return json({ result }, 200);
   } catch (e) {
+    console.error(params.fn + ": " + e.message);
     return json({ error: e.message }, e.status || 502);
   }
 }
@@ -162,7 +163,8 @@ async function accessCerts(issuer) {
 
 async function googleToken(env) {
   if (cachedToken && cachedToken.exp > Date.now() + 60 * 1000) return cachedToken.value;
-  const sa = JSON.parse(env.GOOGLE_SA_KEY);
+  // Accept the value as written in .dev.vars, where it may be wrapped in quotes.
+  const sa = JSON.parse(env.GOOGLE_SA_KEY.trim().replace(/^'([\s\S]*)'$/, "$1"));
   const now = Math.floor(Date.now() / 1000);
   const enc = obj => b64url(new TextEncoder().encode(JSON.stringify(obj)));
   const unsigned = enc({ alg: "RS256", typ: "JWT" }) + "." +
