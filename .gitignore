@@ -6,3 +6,9 @@ data/*
 __pycache__/
 venv/
 .DS_Store
+
+# Cloudflare Pages
+cloudflare/public/index.html
+cloudflare/.dev.vars
+cloudflare/.wrangler/
+cloudflare/node_modules/

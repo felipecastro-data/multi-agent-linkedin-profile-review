@@ -4,8 +4,25 @@
     {
       "name": "viewer-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8766", "--directory", "data/preview"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8766",
+        "--directory",
+        "data/preview"
+      ],
       "port": 8766
+    },
+    {
+      "name": "pages-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "cloudflare",
+        "run",
+        "dev"
+      ],
+      "port": 8790
     }
   ]
 }

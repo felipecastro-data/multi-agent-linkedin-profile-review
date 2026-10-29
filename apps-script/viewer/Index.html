@@ -3,6 +3,16 @@
 <head>
 <meta charset="utf-8">
 <title>LinkedIn Review</title>
+<!-- Home-screen icon: used on Cloudflare Pages (cloudflare/public); Apps Script's iframe ignores them. -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LinkedIn Review">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F6F7F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0F0E" media="(prefers-color-scheme: dark)">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -317,13 +327,20 @@ details[open] .plus{transform:rotate(45deg);background:var(--surface-2)}
 </head>
 <body>
 <script>
-/* Apps Script data layer. The app was written against a small document-db API
+/* Data layer. The app was written against a small document-db API
    (collection().orderBy().limit().onSnapshot(), doc().get(), doc().set()).
-   This shim gives it the same API backed by google.script.run, so the app
-   code below stays identical to the artifact version. */
+   This shim gives it the same API backed by google.script.run inside Apps Script,
+   else by POST api/<fn> on Cloudflare Pages (cloudflare/functions/api/[fn].js),
+   so the app code below stays identical to the artifact version. */
 (function(){
-  function call(fn){var args=[].slice.call(arguments,1);return new Promise(function(res,rej){
-    var r=google.script.run.withSuccessHandler(res).withFailureHandler(rej);r[fn].apply(r,args)})}
+  function call(fn){var args=[].slice.call(arguments,1);
+    if(typeof google!=="undefined"&&google.script)return new Promise(function(res,rej){
+      var r=google.script.run.withSuccessHandler(res).withFailureHandler(rej);r[fn].apply(r,args)});
+    /* An expired Access session redirects to the login page, so reload into it. */
+    return fetch("api/"+fn,{method:"POST",redirect:"manual",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)})
+      .then(function(res){
+        if(res.type==="opaqueredirect"){location.reload();return new Promise(function(){})}
+        return res.json().then(function(b){if(!res.ok)throw new Error(b.error||"HTTP "+res.status);return b.result})})}
   function snap(list){return{docs:list.map(function(d){return{id:d.id,data:function(){return d.data}}})}}
   var subs={runs:[],checks:[]};
   async function refresh(name){

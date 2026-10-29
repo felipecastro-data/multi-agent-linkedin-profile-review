@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Build a local preview of the viewer web app from the runs in data/.
 
-Usage: python3 scripts/preview_viewer.py
+Usage: python3 scripts/preview_viewer.py [--pages]
 Writes data/preview/index.html (gitignored with the rest of data/): Index.html
 with its includes inlined and google.script.run replaced by a stub that serves
 data/runs, data/profiles and data/stats the way Code.gs does. Serve it with the
 "viewer-preview" entry in .claude/launch.json.
+
+--pages writes cloudflare/public/index.html instead: the same inlined page with
+no stub and no data, for Cloudflare Pages (`npm run build` in cloudflare/).
 """
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "apps-script" / "viewer"
 DATA = ROOT / "data"
 OUT = DATA / "preview" / "index.html"
+PAGES_OUT = ROOT / "cloudflare" / "public" / "index.html"
 
 
 def docs(folder: str) -> dict:
@@ -24,6 +29,18 @@ def docs(folder: str) -> dict:
 def listing(d: dict) -> str:
     rows = sorted(({"id": k, "data": v} for k, v in d.items()), key=lambda x: str(x["data"].get("run_at", "")), reverse=True)
     return json.dumps(rows)
+
+
+def viewer_html() -> str:
+    """Index.html with its includes inlined and the viewport tag Code.gs doGet adds."""
+    html = (VIEWER / "Index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<\?!= include\('(\w+)'\) \?>", lambda m: (VIEWER / f"{m.group(1)}.html").read_text(encoding="utf-8"), html)
+    return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">', 1)
+
+
+def build_pages() -> None:
+    PAGES_OUT.write_text(viewer_html(), encoding="utf-8")
+    print(f"OK {PAGES_OUT.relative_to(ROOT)}")
 
 
 def main() -> None:
@@ -47,15 +64,11 @@ def main() -> None:
 })();
 </script>
 """ % json.dumps(payload).replace("</", "<\\/")
-    html = (VIEWER / "Index.html").read_text(encoding="utf-8")
-    html = re.sub(r"<\?!= include\('(\w+)'\) \?>", lambda m: (VIEWER / f"{m.group(1)}.html").read_text(encoding="utf-8"), html)
-    html = html.replace("<body>\n", "<body>\n" + stub, 1)
-    # Code.gs doGet adds this meta tag
-    html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">', 1)
+    html = viewer_html().replace("<body>\n", "<body>\n" + stub, 1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
     print(f"OK {OUT.relative_to(ROOT)}: {len(runs)} runs, {len(stats)} stats")
 
 
 if __name__ == "__main__":
-    main()
+    build_pages() if "--pages" in sys.argv[1:] else main()

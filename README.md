@@ -49,6 +49,7 @@ flowchart LR
     V --> I["Apps Script<br/>ingest (doPost + token)"]
     I --> D[("Google Drive<br/>run JSON")]
     D --> A["Apps Script viewer<br/>web app · only me"]
+    D --> F["Cloudflare Pages<br/>behind Access · home-screen app"]
 ```
 
 | Agent | Tools | Output |
@@ -66,11 +67,12 @@ flowchart LR
 - **Probabilistic, not deterministic.** Two runs on the same profile can differ. Mitigations: cited sources, the known-context file, a scraper "carry-over" rule for lists LinkedIn fails to render, and `validate_run.py` checking ids and references before anything is published.
 - **Local by design.** Scraping needs a signed-in, interactive Chrome session, so the pipeline runs on my Mac, not in CI.
 - **Private by default.** Raw profiles and runs are gitignored. The viewer web app is deployed "Only myself"; the ingest endpoint is public but needs a secret token and never returns data. Two Apps Script projects keep those two access levels apart.
-- **No framework.** The app is one HTML file (vanilla JS, glassmorphism cards, a canvas particle field, light/dark). A small shim maps its data calls to `google.script.run`, so the same file can run elsewhere.
+- **No framework.** The app is one HTML file (vanilla JS, glassmorphism cards, a canvas particle field, light/dark). A small shim maps its data calls to `google.script.run` inside Apps Script and to `POST api/<fn>` elsewhere, so the same file runs on both hosts.
+- **Two hosts, one file.** Apps Script serves the page inside a Google iframe, so iOS never sees an app icon. Cloudflare Pages serves the same page with a home-screen icon and manifest; a Pages Function reads the same Drive folder through a service account, behind Cloudflare Access.
 
 ## Tech stack
 
-Claude Code (skills + subagents) · Claude in Chrome · Python 3 standard library · Google Apps Script (HtmlService, ContentService, DriveApp) · Google Drive · vanilla HTML/CSS/JS
+Claude Code (skills + subagents) · Claude in Chrome · Python 3 standard library · Google Apps Script (HtmlService, ContentService, DriveApp) · Google Drive · Cloudflare Pages + Functions + Access · vanilla HTML/CSS/JS
 
 ## Repo layout
 
@@ -86,6 +88,7 @@ scripts/agent_stats.py                    per-agent tokens, cost, timing for the
 scripts/preview_viewer.py                 local preview of the app from data/
 apps-script/viewer/                       the app: Code.gs, Index.html, Office.html, appsscript.json
 apps-script/ingest/                       doPost endpoint: Code.gs, appsscript.json
+cloudflare/                               Pages host: functions/api/[fn].js (Drive twin of Code.gs), icons, manifest
 ```
 
 ## Running it yourself
@@ -131,11 +134,20 @@ Or with [clasp](https://github.com/google/clasp): enable the Apps Script API,
 add a gitignored `.clasp.json` (`{"scriptId":"…","rootDir":"."}`) in
 `apps-script/viewer/`, then `clasp push && clasp deploy -i <deploymentId>`.
 
+### Cloudflare Pages (optional: iPhone home-screen icon)
+1. In Google Cloud, create a service account with a JSON key and share the Drive folder with it as **Editor** (it rewrites `checks.json`).
+2. In Cloudflare Zero Trust, add a self-hosted **Access** application for `<project>.pages.dev` and `*.<project>.pages.dev` with an "only me" policy; put its AUD tag in `cloudflare/wrangler.toml` (`ACCESS_AUD`).
+3. In `cloudflare/`: `npm install`, then set the Pages secrets `FOLDER_ID` and `GOOGLE_SA_KEY` (production and preview) with `npx wrangler pages secret put`.
+4. `npm run deploy:preview` (or `deploy:prod`). The build inlines `Office.html` into `public/index.html`. On iPhone: open the URL in Safari → Share → Add to Home Screen.
+
+Local: a gitignored `cloudflare/.dev.vars` with `DEV_NO_ACCESS=1`, `FOLDER_ID` and `GOOGLE_SA_KEY`, then `npm run dev` (http://localhost:8790, live Drive data).
+
 ## Limitations
 
 - LinkedIn's lazy-loaded pages sometimes render empty to text tools; the scraper falls back to scrolling, section reads and screenshots, and carries unchanged lists over from the previous run (noted in the run).
 - Salary bands come from public surveys and job-board aggregates with different samples; the app shows both agents' figures when they disagree.
 - Advice is the agents' judgment from public sources, not a guarantee.
+- On Cloudflare the run and stats lists show the newest 40 of each (Workers' 50-subrequest limit); Apps Script shows 100.
 
 ## License
 

@@ -1,0 +1,9 @@
+name = "linkedin-review"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+[vars]
+ACCESS_TEAM_DOMAIN = "odd-paper-fda0.cloudflareaccess.com"
+# Application Audience (AUD) tag of the "LinkedIn Review" Access application, comma-separated list allowed;
+# until set, /api/* returns 401.
+ACCESS_AUD = "31720be8811ada046293ac790d49ebab90ec2e6c4eb08728360566fce4a0618b"
