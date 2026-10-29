@@ -153,10 +153,13 @@ main{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:28px 140px
 .chart svg{display:block;width:100%;height:auto;overflow:visible}
 .tip{position:absolute;transform:translate(-50%,-130%);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:.7rem;padding:4px 8px;border-radius:7px;white-space:nowrap;pointer-events:none;transition:left .25s,top .25s}
 .tip b{color:var(--accent);font-weight:500;margin-left:6px}
+/* near the chart edges the tip hangs inward instead of centering, so the card does not clip it */
+.tip.l{transform:translate(-14px,-130%)}.tip.r{transform:translate(calc(-100% + 14px),-130%)}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:18px}
 .stat{background:var(--inner);border:1px solid var(--g-border);border-radius:var(--r-sm);padding:10px 12px;min-width:0}
 .stat b{display:block;font-size:1.2rem;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.stat span{font-size:.72rem;color:var(--muted)}
+.stat>span{display:block;font-size:.72rem;color:var(--muted);-webkit-hyphens:auto;hyphens:auto;overflow-wrap:break-word}
+@media (max-width:480px){.stat{padding:10px}.stat>span{font-size:.68rem}}
 .rows{display:flex;flex-direction:column}
 .row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
@@ -474,7 +477,7 @@ function viewOverview(r){
         <div class="stats">
           <div class="stat"><b>${avg!=null?avg.toFixed(1):"–"}<span style="font-size:.8rem;color:var(--muted)">/10</span></b><span>Profile score</span></div>
           <div class="stat"><b>${fmtN(sn.followers)}</b><span>Followers</span></div>
-          <div class="stat"><b>${fmtN(sn.recommendations_received)}</b><span>Recommendations</span></div>
+          <div class="stat"><b>${fmtN(sn.recommendations_received)}</b><span>Recommen&shy;dations</span></div>
         </div>
       </div>
       <div>
@@ -525,8 +528,9 @@ function postChart(r){
     <circle id="cdot" cx="${P[pk][0]}" cy="${P[pk][1]}" r="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
     ${pts.map((p,i)=>`<text x="${x(i)}" y="${H-6}" text-anchor="${i===0?"start":i===pts.length-1?"end":"middle"}" font-size="10" fill="var(--muted)" font-family="Geist Mono, monospace">${esc(p.date||"")}</text>`).join("")}
     <rect x="0" y="0" width="${W}" height="${H}" fill="transparent" id="chartHit"/>
-  </svg><div class="tip" id="ctip" style="left:${(P[pk][0]/W*100).toFixed(2)}%;top:${(P[pk][1]/H*100).toFixed(2)}%">${compact(pts[pk].impressions)}<b>${esc(pts[pk].likes!=null?pts[pk].likes+" ♥":"")}</b></div>`;
+  </svg><div class="tip${tipSide(P[pk][0]/W)}" id="ctip" style="left:${(P[pk][0]/W*100).toFixed(2)}%;top:${(P[pk][1]/H*100).toFixed(2)}%">${compact(pts[pk].impressions)}<b>${esc(pts[pk].likes!=null?pts[pk].likes+" ♥":"")}</b></div>`;
 }
+function tipSide(f){return f<.15?" l":f>.85?" r":""}
 function chartHover(e){
   const C=S._chart,svg=document.getElementById("chartSvg");if(!C||!svg)return;
   const b=svg.getBoundingClientRect();const xv=(e.clientX-b.left)/b.width*C.W;
@@ -534,7 +538,7 @@ function chartHover(e){
   const p=C.P[best],pt=C.pts[best];
   const cx=document.getElementById("cx"),cd=document.getElementById("cdot"),tip=document.getElementById("ctip");
   cx.setAttribute("x1",p[0]);cx.setAttribute("x2",p[0]);cx.setAttribute("y1",p[1]);cd.setAttribute("cx",p[0]);cd.setAttribute("cy",p[1]);
-  tip.style.left=(p[0]/C.W*100)+"%";tip.style.top=(p[1]/C.H*100)+"%";tip.innerHTML=`${compact(pt.impressions)}<b>${pt.likes!=null?pt.likes+" ♥":""}</b>`;
+  tip.className="tip"+tipSide(p[0]/C.W);tip.style.left=(p[0]/C.W*100)+"%";tip.style.top=(p[1]/C.H*100)+"%";tip.innerHTML=`${compact(pt.impressions)}<b>${pt.likes!=null?pt.likes+" ♥":""}</b>`;
   tip.title=pt.text_snippet||"";
 }
 function trendBlock(){
